@@ -10,5 +10,6 @@ window.GUIDE = Object.freeze({
   accent: "#2f7d5b",
   look: "chalk",
   defaultTheme: "dark",
+  kindNames: Object.freeze({ s: ["Problem", "Problems"] }),
   extraChapterNames: Object.freeze({"51":"§5.1","52":"§5.2","53":"§5.3","61":"§6.1","71":"§7.1","72":"§7.2","73":"§7.3"})
 });
