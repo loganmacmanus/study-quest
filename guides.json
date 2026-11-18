@@ -1,0 +1,42 @@
+[
+  {
+    "id": "cs379",
+    "folder": "cs379-quest",
+    "name": "CS 379 Ethical Hacking",
+    "test": "Test 2",
+    "icon": "🛡",
+    "accent": "#2f6fd6",
+    "questions": 558,
+    "cards": 506,
+    "storageKey": "cs379q3",
+    "legacyKeys": [
+      "cs379q"
+    ]
+  },
+  {
+    "id": "cr370",
+    "folder": "cr370-quest",
+    "name": "CR 370 Origins",
+    "test": "Test 3",
+    "icon": "📖",
+    "accent": "#8a7a2c",
+    "questions": 210,
+    "cards": 248,
+    "storageKey": "cr370_q",
+    "legacyKeys": [],
+    "look": "origins"
+  },
+  {
+    "id": "sc141",
+    "folder": "sc141-quest",
+    "name": "SC 141 Astronomy",
+    "test": "Test 3",
+    "icon": "🪐",
+    "accent": "#5b4fd6",
+    "questions": 224,
+    "cards": 222,
+    "storageKey": "sc141_q",
+    "legacyKeys": [],
+    "look": "cosmos"
+  }
+]
