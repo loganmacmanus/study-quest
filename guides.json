@@ -38,5 +38,18 @@
     "storageKey": "sc141_q",
     "legacyKeys": [],
     "look": "cosmos"
+  },
+  {
+    "id": "ma224",
+    "folder": "ma224-quest",
+    "name": "MA 224 Discrete Math",
+    "test": "Test 3",
+    "icon": "∑",
+    "accent": "#2f7d5b",
+    "questions": 316,
+    "cards": 222,
+    "storageKey": "ma224_q",
+    "legacyKeys": [],
+    "look": "chalk"
   }
 ]
