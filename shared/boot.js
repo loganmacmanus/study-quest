@@ -27,7 +27,7 @@
     const uid = CSQ.session.user.id, board = CSQ.boardAdapter(GUIDE.id);
     window.CSQ_DB = Object.freeze({ use: async (n) => n === "db" ? board : n === "user" ? { id: async () => uid } : null });
 
-    const s = document.createElement("script"); s.src = "../shared/app.js?v=11"; s.defer = true;
+    const s = document.createElement("script"); s.src = "../shared/app.js?v=12"; s.defer = true;
     s.onload = () => {
       const bar = document.getElementById("acct");
       bar.hidden = false;

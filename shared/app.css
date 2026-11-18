@@ -182,8 +182,10 @@ figure{margin:12px 0;color:var(--ac)}figure figcaption{color:var(--mut);font-siz
 .err{color:var(--bad);min-height:22px;font-size:14px;margin:6px 0}
 .small{font-size:13px}
 .spin{width:34px;height:34px;margin:8px auto 14px;border-radius:50%;border:3px solid var(--bd);border-top-color:var(--ac);animation:spin 1s linear infinite}
-#acct{position:fixed;left:max(12px,env(safe-area-inset-left,0px));bottom:max(10px,env(safe-area-inset-bottom,0px));z-index:15;font-size:12px;color:var(--mut);background:var(--cardA);border:1px solid var(--bd);border-radius:10px;padding:4px 10px}
-#acct a,#acct button{color:var(--mut);text-decoration:underline;font-size:12px;min-height:28px}
+#acct{display:table;margin:28px auto max(18px,env(safe-area-inset-bottom,0px));text-align:center;font-size:12px;color:var(--mut);background:var(--cardA);border:1px solid var(--bd);border-radius:10px;padding:4px 10px}
+#acct a,#acct button{color:var(--mut);text-decoration:underline;font-size:12px;min-height:28px;display:inline-flex;align-items:center;vertical-align:middle;padding:0}
 #acct[hidden]{display:none}
 .consent{margin:12px 0 0!important}.consent a{color:var(--ac)}
 :focus-visible{outline:3px solid var(--ac);outline-offset:2px}
+
+@media(max-width:560px){.tog{display:flex;flex-wrap:nowrap;width:100%;margin-right:0}.tog button{flex:1 1 auto;padding:9px 6px;line-height:1.2;white-space:nowrap}.stat div{flex:1 1 calc(50% - 6px)}}

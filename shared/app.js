@@ -9,7 +9,7 @@ const KEYS=Object.keys(CH);
 const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
 const KIND={s:'Scenario',d:'Definition',a:'Acronym'};
 const reduce=()=>window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
-const chName=c=>(GUIDE.extraChapterNames&&GUIDE.extraChapterNames[c])||'Ch '+c;
+const XN=c=>GUIDE.extraChapterNames&&GUIDE.extraChapterNames[c];const SECM=c=>/^(Section\s+[^:]+):\s*(.+)$/.exec((window.CH&&CH[c]&&CH[c][0])||'');const chName=c=>XN(c)||(SECM(c)?'Sec '+c:'Ch '+c);const chTitle=c=>XN(c)||(SECM(c)?SECM(c)[1]:'Chapter '+c);const chSub=c=>{const n=String((CH[c]||[''])[0]),x=XN(c),m=SECM(c);return m?m[2]:(x&&n.toLowerCase().startsWith(x.toLowerCase())?'Class notes':n)};const UNITS=()=>Object.keys(CH).every(k=>SECM(k))?'Sections':'Chapters';
 
 /* ---------- state ---------- */
 const SK=GUIDE.storageKey;
@@ -296,7 +296,7 @@ function home(){
   const top=[...S.hist].sort((a,b)=>b.pct-a.pct||b.n-a.n).slice(0,3);
   main.innerHTML='<div class="page"><div class="card hero"><div class="logo">'+logo(116,1)+'</div><div class="t"><div class="mut" style="font-weight:800;letter-spacing:.1em;font-size:12px">WELCOME BACK, '+esc(S.name||'')+'</div><h1 style="font-size:28px;margin:2px 0">'+esc(ttl())+' · Level '+l+'</h1><div class="bar" style="margin:8px 0"><i style="width:'+(inL/PER*100)+'%"></i></div><div class="mut" style="font-size:14px">'+inL+' / '+PER+' XP to level '+(l+1)+' · '+S.xp+' XP total</div><div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="q10">⚡ Quick 10</button><button class="btn g" id="t30">🎯 Full test</button></div></div></div>'
   +'<div class="stat" style="margin-bottom:14px"><div><b>'+tot+'</b>questions</div><div><b>'+G.length+'</b>glossary terms</div><div><b>'+acc+'%</b>accuracy</div><div><b>'+S.bestTest+'%</b>best test</div></div>'
-  +'<h2 style="margin:6px 0 10px">Chapters</h2><div class="grid">'+KEYS.map((k,i)=>{const p=prog(k);return '<div class="card hv" style="animation-delay:'+i*.04+'s"><div style="display:flex;gap:12px;align-items:center"><span class="cico" aria-hidden="true">'+esc(CH[k][1])+'</span><div style="min-width:0"><h3 style="margin:0">'+(GUIDE.extraChapterNames&&GUIDE.extraChapterNames[k]?esc(GUIDE.extraChapterNames[k])+' (class notes)':'Chapter '+esc(k))+'</h3><div class="mut" style="font-size:14px">'+esc(CH[k][0])+'</div></div></div><div class="bar" style="margin:12px 0 8px"><i style="width:'+p+'%"></i></div><div class="mut" style="font-size:13px">'+p+'% mastered · '+POOLN(k)+' questions</div><div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="btn s g" data-s="'+esc(k)+'">Study</button><button class="btn s" data-q="'+esc(k)+'">Quiz</button></div></div>'}).join('')+'</div>'
+  +'<h2 style="margin:6px 0 10px">'+UNITS()+'</h2><div class="grid">'+KEYS.map((k,i)=>{const p=prog(k);return '<div class="card hv" style="display:flex;flex-direction:column;animation-delay:'+i*.04+'s"><div style="display:flex;gap:12px;align-items:center"><span class="cico" aria-hidden="true">'+esc(CH[k][1])+'</span><div style="min-width:0"><h3 style="margin:0">'+esc(chTitle(k))+'</h3><div class="mut" style="font-size:14px">'+esc(chSub(k))+'</div></div></div><div style="margin-top:auto"><div class="bar" style="margin:12px 0 8px"><i style="width:'+p+'%"></i></div><div class="mut" style="font-size:13px">'+p+'% mastered · '+POOLN(k)+' questions</div><div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="btn s g" data-s="'+esc(k)+'">Study</button><button class="btn s" data-q="'+esc(k)+'">Quiz</button></div></div></div>'}).join('')+'</div>'
   +'<h2 style="margin:6px 0 10px">Badges</h2><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr))">'+BD.map(b=>'<div class="badge '+(S.badges[b[0]]?'':'off')+'"><span aria-hidden="true">'+b[1]+'</span>'+b[2]+'</div>').join('')+'</div>'
   +(top.length?'<div class="card"><h3>Your best runs</h3>'+top.map(h=>'<div style="display:flex;justify-content:space-between;padding:4px 0"><span>'+(h.mode==='test'?'🎯':'⚡')+' '+esc(h.scope)+'</span><b>'+h.pct+'%</b></div>').join('')+'</div>':'')+'</div>';
   $('#q10').onclick=()=>{multi=['all'];cfg.kind='all';cfg.n='10';start('quiz')};$('#t30').onclick=()=>{multi=['all'];cfg.kind='all';cfg.n='40';go('test')};
@@ -308,10 +308,10 @@ function home(){
 const cards=c=>N[c].map((s,i)=>{const j=s.indexOf(' — ');return{k:c+':'+i,t:j>0?s.slice(0,j):'Note',d:j>0?s.slice(j+3):s}});
 const gcards=c=>G.map((g,i)=>({k:'g'+i,c:g[0],t:g[1],x:g[2],d:g[3]})).filter(g=>c==='all'||g.c===c);
 function study(){
-  const sb=[['notes','📖 Notes'],['flash','🃏 Flashcards'],['gloss','🔤 Glossary & acronyms']];
+  const sb=[['notes','📖 Notes'],['flash','🃏 Flashcards'],['gloss','🔤 Glossary']];
   let h='<div class="page"><div class="tog" role="tablist" aria-label="Study modes">'+sb.map(s=>'<button role="tab" aria-selected="'+(sub===s[0])+'" class="'+(sub===s[0]?'on':'')+'" data-sb="'+s[0]+'">'+s[1]+'</button>').join('')+'</div>';
   if(sub==='notes'){const c=cur,cs=cards(c),kn=cs.filter(x=>S.known[x.k]).length;
-    h+='<div class="card"><h2>'+esc(CH[c][1])+' '+(GUIDE.extraChapterNames&&GUIDE.extraChapterNames[c]?esc(GUIDE.extraChapterNames[c])+' (class notes)':'Chapter '+esc(c))+': '+esc(CH[c][0])+'</h2><div class="mut">'+kn+' of '+cs.length+' notes marked as known</div><div class="bar" style="margin-top:8px"><i style="width:'+(100*kn/cs.length)+'%"></i></div></div>';
+    h+='<div class="card"><h2>'+esc(CH[c][1])+' '+esc(chTitle(c))+': '+esc(chSub(c))+'</h2><div class="mut">'+kn+' of '+cs.length+' notes marked as known</div><div class="bar" style="margin-top:8px"><i style="width:'+(100*kn/cs.length)+'%"></i></div></div>';
     const im={'6':'tcp','10':'arp','11':'ch'}[c];if(im&&IMG[im])h+='<div class="card">'+fig(IMG[im])+'</div>';
     h+=cs.map(x=>'<div class="note"><b>'+esc(x.t)+'</b> — '+esc(x.d)+'<div style="margin-top:6px"><button class="btn s '+(S.known[x.k]?'':'g')+'" data-k="'+x.k+'" aria-pressed="'+!!S.known[x.k]+'">'+(S.known[x.k]?'✓ Known':'Mark as known')+'</button></div></div>').join('')}
   else if(sub==='flash'){const c=cur,cs=cards(c).map(x=>({k:x.k,t:x.t,x:'',d:x.d})).concat(gcards(c).map(g=>({k:g.k,t:g.t,x:g.x,d:g.d})));
@@ -332,14 +332,15 @@ function study(){
 /* ---------- setup ---------- */
 const pool=()=>ALLQ.filter(q=>(multi.includes('all')||multi.includes(q.c))&&(cfg.kind==='all'||q.t===cfg.kind));
 function setup(m){
+  const KT=['s','d','a'].filter(t=>ALLQ.some(q=>q.t===t));if(cfg.kind!=='all'&&!KT.includes(cfg.kind))cfg.kind='all';
   const n=pool().length,isT=m==='test';
   main.innerHTML='<div class="page"><div class="card"><h2>'+(isT?'🎯 Test mode':'⚡ Quiz mode')+'</h2><div class="mut">'+(isT?'Graded. No feedback until the end, then a full review with answers and explanations.':'Instant feedback with a full explanation after every answer. Earn XP and streak bonuses.')+'</div>'
-  +'<span class="lab">Chapters (pick in the bar above)</span><div style="margin:4px 0 8px">'+(multi.includes('all')?'<span class="tag">All chapters</span>':multi.map(k=>'<span class="tag">'+esc(chName(k))+' · '+esc(CH[k][0])+'</span>').join(''))+'</div>'
-  +'<span class="lab">Question type</span><div class="tog" id="tk">'+[['all','All'],['s','Scenarios'],['d','Definitions'],['a','Acronyms']].map(x=>'<button class="'+(cfg.kind===x[0]?'on':'')+'" data-v="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>'
+  +'<span class="lab">'+UNITS()+' (pick in the bar above)</span><div style="margin:4px 0 8px">'+(multi.includes('all')?'<span class="tag">All '+UNITS().toLowerCase()+'</span>':multi.map(k=>'<span class="tag">'+esc(chName(k))+' · '+esc(CH[k][0])+'</span>').join(''))+'</div>'
+  +(KT.length>1?'<span class="lab">Question type</span><div class="tog" id="tk">'+[['all','All']].concat([['s','Scenarios'],['d','Definitions'],['a','Acronyms']].filter(x=>KT.includes(x[0]))).map(x=>'<button class="'+(cfg.kind===x[0]?'on':'')+'" data-v="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>':'')
   +'<span class="lab">How many</span><div class="tog" id="tn">'+['10','20','40','all'].map(x=>'<button class="'+(cfg.n===x?'on':'')+'" data-v="'+x+'">'+(x==='all'?'All ('+n+')':x)+'</button>').join('')+'</div>'
-  +(isT?'<span class="lab">Timer</span><div class="tog" id="tt"><button class="'+(!cfg.timed?'on':'')+'" data-v="0">Untimed</button><button class="'+(cfg.timed?'on':'')+'" data-v="1">Timed (45 s per question)</button></div>':'')
+  +(isT?'<span class="lab">Timer</span><div class="tog" id="tt"><button class="'+(!cfg.timed?'on':'')+'" data-v="0">Untimed</button><button class="'+(cfg.timed?'on':'')+'" data-v="1">Timed · 45 s each</button></div>':'')
   +'<div style="margin-top:14px"><button class="btn" id="go" '+(n?'':'disabled')+'>Start '+(isT?'test':'quiz')+' ('+Math.min(n,cfg.n==='all'?n:+cfg.n)+' questions)</button></div>'+(n?'':'<div class="err">No questions match. Change the filters.</div>')+'</div></div>';
-  $('#tk').querySelectorAll('button').forEach(b=>b.onclick=()=>{cfg.kind=b.dataset.v;setup(m)});
+  if($('#tk'))$('#tk').querySelectorAll('button').forEach(b=>b.onclick=()=>{cfg.kind=b.dataset.v;setup(m)});
   $('#tn').querySelectorAll('button').forEach(b=>b.onclick=()=>{cfg.n=b.dataset.v;setup(m)});
   if(isT)$('#tt').querySelectorAll('button').forEach(b=>b.onclick=()=>{cfg.timed=b.dataset.v==='1';setup(m)});
   $('#go').onclick=()=>start(m);
@@ -348,7 +349,7 @@ function start(m,custom){
   let p=custom||pool();p=shuffle(p);if(!custom&&cfg.n!=='all')p=p.slice(0,+cfg.n);
   if(!p.length)return;
   const qs=p.map(q=>{const ord=shuffle(q.o.map((t,i)=>i));return{q,ord,ci:ord.indexOf(q.a)}});
-  R={mode:m,qs,i:0,right:0,ans:[],pick:[],streak:0,mx:0,lock:0,timed:m==='test'&&cfg.timed,tleft:qs.length*45,scope:multi.includes('all')?'All chapters':multi.map(chName).join(', '),sel:null,xp:0};
+  R={mode:m,qs,i:0,right:0,ans:[],pick:[],streak:0,mx:0,lock:0,timed:m==='test'&&cfg.timed,tleft:qs.length*45,scope:multi.includes('all')?'All '+UNITS().toLowerCase():multi.map(chName).join(', '),sel:null,xp:0};
   V='run';clearInterval(tm);
   if(R.timed)tm=setInterval(()=>{R.tleft--;const t=$('#tleft');if(t){t.textContent=fmt(R.tleft)}if(R.tleft<=0){clearInterval(tm);finish()}},1000);
   render();scrollTo(0,0);
