@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src https://*.supabase.co; base-uri 'none'; form-action 'none'; manifest-src 'self'"><meta name="referrer" content="no-referrer"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><title>CS 379 Test 2 · Study Quest</title>
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#050d18">
+<link rel="stylesheet" href="../fonts.css">
+<link rel="stylesheet" href="../shared/app.css?v=1">
+<link rel="preload" href="../shared/app.js?v=11" as="script">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Cpath d=%22M32 3L57 12V32C57 47 46 57 32 61C18 57 7 47 7 32V12Z%22 fill=%22%2322d3ee%22/%3E%3C/svg%3E"></head><body>
+<canvas id="bg" aria-hidden="true"></canvas>
+<div id="app">
+<div id="flash"></div>
+<header id="hud">
+ <div class="row">
+  <span class="brand logo" id="brandlogo"></span>
+  <span class="sp"></span>
+  <button class="pill me" id="me" aria-label="Change your 3 letter callsign"></button>
+  <span class="pill" id="streak" title="Current streak"><span class="fire" aria-hidden="true">🔥</span><span id="stv">0</span></span>
+  <button class="ib" id="mus" aria-label="Music on or off" aria-pressed="true">🎵</button>
+  <button class="ib" id="snd" aria-label="Sound effects on or off" aria-pressed="true">🔊</button>
+  <button class="ib" id="pal" aria-label="Choose a color theme" aria-haspopup="true" aria-expanded="false">🎨</button><button class="ib" id="thm" aria-label="Switch light or dark mode">◐</button>
+ </div>
+ <nav id="tabs" aria-label="Sections"></nav>
+ <div id="xpbar"><i></i></div>
+</header>
+<div id="chips" role="group" aria-label="Chapters"></div>
+<main id="main" aria-live="polite"></main>
+</div>
+<div class="ov" id="gate" role="dialog" aria-modal="true" aria-labelledby="gt"></div>
+<div class="ov" id="lv" role="dialog" aria-modal="true" aria-labelledby="lvt"></div>
+
+<div id="auth"></div><div id="acct" hidden></div>
+<script src="../config.js"></script><script src="../web.js?v=11"></script><script src="guide.js"></script><script src="../shared/boot.js?v=11"></script>
+</body></html>
