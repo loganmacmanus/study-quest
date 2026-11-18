@@ -30,19 +30,73 @@
     // optional Proofs feature: only guides whose content has an "X" object load proofs.js (before app.js)
     const hasX = data.X && typeof data.X === "object" && !Array.isArray(data.X);
     if (hasX) window.X = data.X;
-    const s = document.createElement("script"); s.src = "../shared/app.js?v=13"; s.defer = true;
-    s.onload = () => {
-      const bar = document.getElementById("acct");
-      bar.hidden = false;
-      bar.innerHTML = '<a href="../">All guides</a> · ' + (CSQ.isOwner() ? '<a href="../admin.html">Admin</a> · ' : "") + '<a href="../privacy.html">Privacy</a> · <a href="../terms.html">Terms</a> · <button type="button" id="signout">Sign out</button>';
-      document.getElementById("signout").onclick = CSQ.signOut;
-    };
+    const s = document.createElement("script"); s.src = "../shared/app.js?v=14"; s.defer = true;
+    s.onload = buildNav;
     if (hasX) {
-      const p = document.createElement("script"); p.src = "../shared/proofs.js?v=1"; p.defer = true;
+      const p = document.createElement("script"); p.src = "../shared/proofs.js?v=2"; p.defer = true;
       p.onload = () => document.body.appendChild(s);
       p.onerror = () => { delete window.X; document.body.appendChild(s); };
       document.body.appendChild(p);
     } else document.body.appendChild(s);
   };
+  /* Side menu (replaces the old footer link bar): every guide, the hub, Admin (owner), Privacy, Terms and Sign out,
+     reachable from anywhere through the ☰ button in the header. Built into #acct, which becomes a slide-in drawer. */
+  function buildNav() {
+    const bar = document.getElementById("acct"), row = document.querySelector("#hud .row");
+    if (!bar || !row || document.getElementById("navbtn")) return;
+    const here = (location.pathname.match(/\/([a-z0-9-]{2,40})\/(?:index\.html)?$/) || [])[1] || "";
+    const icon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg>';
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.className = "ib"; btn.id = "navbtn"; btn.innerHTML = icon;
+    btn.setAttribute("aria-label", "Open menu: switch guide, privacy, terms, sign out");
+    btn.setAttribute("aria-expanded", "false"); btn.setAttribute("aria-controls", "acct");
+    row.insertBefore(btn, row.firstChild); row.classList.add("hasnav");
+    const bk = document.createElement("div"); bk.id = "navbk"; document.body.appendChild(bk);
+
+    const link = (href, ico, title, sub, cur) => '<a href="' + esc(href) + '"' + (cur ? ' aria-current="page"' : "") + '><span class="navi" aria-hidden="true">' + esc(ico) + '</span><span class="navt"><span>' + esc(title) + "</span>" + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</span></a>";
+    const guideList = (list) => list.map((g) => link("../" + g.folder + "/", g.icon, g.name, g.test, g.folder === here)).join("");
+    const fallback = [{ folder: here, icon: "📘", name: GUIDE.name || GUIDE.short || "This guide", test: GUIDE.test || "" }];
+    function paint(list) {
+      bar.innerHTML = '<div class="navh"><b>Study Quest</b><button type="button" class="ib navx" id="navclose" aria-label="Close menu">✕</button></div>'
+        + '<nav aria-label="Study guides"><div class="navs">Guides</div>' + guideList(list) + link("../", "🏠", "All guides", "Hub with progress for each", false) + "</nav>"
+        + '<div class="navs">More</div>' + (CSQ.isOwner() ? link("../admin.html", "🛡️", "Admin", "Approve people", false) : "")
+        + link("../privacy.html", "🔒", "Privacy", "", false) + link("../terms.html", "📄", "Terms", "", false)
+        + '<button type="button" class="navl" id="signout"><span class="navi" aria-hidden="true">↩</span><span class="navt"><span>Sign out</span></span></button>';
+      document.getElementById("signout").onclick = CSQ.signOut;
+      document.getElementById("navclose").onclick = () => toggle(false);
+    }
+    bar.className = "navd"; bar.setAttribute("role", "dialog"); bar.setAttribute("aria-modal", "true"); bar.setAttribute("aria-label", "Menu");
+    bar.hidden = false;
+    paint(fallback);
+    fetch("../guides.json", { cache: "no-cache", credentials: "same-origin" }).then((r) => r.ok ? r.json() : null).then((j) => {
+      if (!Array.isArray(j)) return;
+      const ok = j.filter((g) => g && typeof g === "object" && /^[a-z0-9-]{2,40}$/.test(String(g.folder || g.id || "")) && typeof g.name === "string").slice(0, 30)
+        .map((g) => ({ folder: String(g.folder || g.id), icon: String(g.icon || "📘").slice(0, 4), name: g.name.slice(0, 60), test: String(g.test || "").slice(0, 30) }));
+      if (ok.length) paint(ok);
+    }).catch(() => {});
+
+    let lastFocus = null;
+    function toggle(open) {
+      const isOpen = bar.classList.contains("open");
+      if (open === isOpen) return;
+      bar.classList.toggle("open", open); bk.classList.toggle("open", open);
+      btn.setAttribute("aria-expanded", String(open));
+      if (open) { lastFocus = document.activeElement; const f = bar.querySelector('a[aria-current="page"]') || bar.querySelector("a,button"); if (f) f.focus(); }
+      else if (lastFocus && lastFocus.focus) lastFocus.focus();
+    }
+    btn.onclick = () => toggle(!bar.classList.contains("open"));
+    bk.onclick = () => toggle(false);
+    document.addEventListener("keydown", (e) => {
+      if (!bar.classList.contains("open")) return;
+      e.stopPropagation();   // quiz shortcuts (1-4, A-D, Enter) must not fire behind the open menu
+      if (e.key === "Escape") { e.preventDefault(); toggle(false); return; }
+      if (e.key === "Tab") {   // keep focus inside the open menu
+        const f = [...bar.querySelectorAll("a[href],button:not([disabled])")];
+        if (!f.length) return;
+        if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+        else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+      }
+    }, true);
+  }
   CSQ.start();
 })();

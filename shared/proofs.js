@@ -192,9 +192,8 @@
     if (o) {
       head += '<div class="card px-outline"><button type="button" class="btn s g" id="px-ol" aria-expanded="' + st.outline + '" aria-controls="px-olb">📋 ' + esc(o.title || "Test outline") + " " + (st.outline ? "▲" : "▼") + '</button><div id="px-olb"' + (st.outline ? "" : " hidden") + ">";
       if (o.coverage) head += '<p class="mut">' + esc(o.coverage) + "</p>";
-      head += '<div class="px-tw" tabindex="0" role="region" aria-label="Test outline table"><table class="px-table"><thead><tr><th scope="col">Questions</th><th scope="col">Type</th><th scope="col">Points</th><th scope="col">Share</th></tr></thead><tbody>'
-        + (isArr(o.rows) ? o.rows : []).map(function (r) { r = isArr(r) ? r : []; return "<tr>" + [0, 1, 2, 3].map(function (k) { return "<td>" + esc(r[k] == null ? "" : r[k]) + "</td>"; }).join("") + "</tr>"; }).join("")
-        + "</tbody></table></div>";
+      head += '<ul class="px-ol">' + (isArr(o.rows) ? o.rows : []).map(function (r) { r = isArr(r) ? r : []; var t = function (k) { return esc(r[k] == null ? "" : r[k]); };
+        return '<li class="px-olr"><div class="px-olq">Q' + t(0) + '</div><div class="px-olt">' + t(1) + '</div><div class="px-olp"><span class="tag">' + t(2) + '</span><b>' + t(3) + "</b></div></li>"; }).join("") + "</ul>";
       if (o.note) head += '<p class="mut">' + esc(o.note) + "</p>";
       head += "</div></div>";
     }
@@ -228,7 +227,7 @@
         if (!st.b || !items.some(function (it, n) { return idOf("b", it, n) === st.b.id; })) st.b = { id: idOf("b", items[0], 0), stage: 0, lines: [], bad: [], order: null, msg: "" };
         var bi = items.findIndex(function (it, n) { return idOf("b", it, n) === st.b.id; }), it = items[bi], stages = isArr(it.stages) ? it.stages : [];
         body += '<div class="px-pick">' + items.map(function (p, n) { var id = idOf("b", p, n); return '<button type="button" class="btn s ' + (id === st.b.id ? "" : "g") + '" data-pk="' + n + '" aria-pressed="' + (id === st.b.id) + '">' + (px[id] ? "✓ " : "") + esc(p.title || "") + "</button>"; }).join("") + "</div>";
-        body += '<div class="card px-card"><div>' + tag(it) + "</div><h3>" + esc(it.title || "") + '</h3><p><b>' + esc(it.statement || "") + "</b></p>";
+        body += '<div class="card px-card"><div>' + tag(it) + '</div><p class="px-stmt"><b>' + esc(it.statement || "") + "</b></p>";
         if (st.b.lines.length) body += '<div class="px-proof">' + st.b.lines.map(function (l) { return '<div class="px-line">' + esc(l) + "</div>"; }).join("") + (st.b.stage >= stages.length ? '<div class="px-qed" aria-label="end of proof">∎</div>' : "") + "</div>";
         if (st.b.stage < stages.length) {
           var sg = stages[st.b.stage], opts = [{ t: sg.correct, ok: true }].concat((isArr(sg.wrong) ? sg.wrong : []).map(function (w) { return { t: w[0], why: w[1], ok: false }; }));
