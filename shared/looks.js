@@ -1,5 +1,5 @@
 /* Per-guide visual looks for the Study Quest engine (plain JS, no dependencies).
-   A guide opts in with `look: "origins"` or `look: "cosmos"` in its guide.js (window.GUIDE). The guide page itself carries the CSS
+   A guide opts in with `look: "origins"`, `"cosmos"` or `"chalk"` in its guide.js (window.GUIDE). The guide page itself carries the CSS
    variable overrides (colors, heading font); this file supplies what CSS cannot: the logo, the animated background, the
    colour-theme picker options and the level titles. A guide without a look (CS 379) never loads this file and uses the
    built-in cyber look in app.js. Everything here respects prefers-reduced-motion (one still frame, no animation loop). */
@@ -190,5 +190,68 @@
     }
   };
 
-  window.CSQ_LOOKS = Object.freeze({ origins: Object.freeze(origins), cosmos: Object.freeze(cosmos) });
+  /* ================= CHALK: a green chalkboard (dark) and graph paper (light); faint chalk math symbols drift over a faint grid ================= */
+  const chalk = {
+    meta: { light: "#f6f8fc", dark: "#14261f" },
+    titles: ["Counting Novice", "Sequence Spotter", "Set Builder", "Function Mapper", "Induction Apprentice", "Basis Prover", "Proof Writer", "Element Chaser", "Inverse Finder", "Bijection Master", "Theorem Prover"],
+    /* the first palette is the stylesheet's own colours; 999 marks the low-saturation graphite palette */
+    palettes: [["chalk", "Chalk green", 150], ["blueprint", "Blueprint", 214], ["ink", "Ink violet", 262], ["redpen", "Red pen", 4], ["marker", "Highlighter", 52], ["graphite", "Graphite", 999]],
+    swatch: (h) => h === 999 ? "linear-gradient(135deg,hsl(215 8% 38%),hsl(215 8% 66%))" : "linear-gradient(135deg,hsl(" + h + " 70% 50%),hsl(" + ((h + 150) % 360) + " 65% 62%))",
+    gen(h, d) {
+      const g = h === 999, hh = g ? 215 : h, h2 = (hh + 150) % 360, s = g ? 0.25 : 1;
+      return d
+        ? { "--bg": `hsl(${hh} ${30 * s}% 9%)`, "--bg2": `hsl(${hh} ${28 * s}% 13%)`, "--card": `hsl(${hh} ${26 * s}% 17%)`, "--cardA": `hsl(${hh} ${26 * s}% 17% / .9)`, "--tx": `hsl(${hh} ${25 * s}% 94%)`, "--mut": `hsl(${hh} ${16 * s}% 76%)`, "--ac": `hsl(${hh} ${82 * s}% 72%)`, "--ac2": `hsl(${h2} ${70 * s}% 76%)`, "--bd": `hsl(${hh} ${22 * s}% 26%)`, "--glow": `hsl(${hh} ${82 * s}% 72% / .26)`, "--net": hsl2rgb(hh, 14 * s, 90), "--bt": `hsl(${hh} ${40 * s}% 7%)` }
+        : { "--bg": `hsl(${hh} ${50 * s}% 97%)`, "--bg2": `hsl(${hh} ${40 * s}% 93%)`, "--card": "#fff", "--cardA": "rgba(255,255,255,.9)", "--tx": `hsl(${hh} ${45 * s}% 13%)`, "--mut": `hsl(${hh} ${22 * s}% 31%)`, "--ac": `hsl(${hh} ${75 * s}% 24%)`, "--ac2": `hsl(${h2} ${68 * s}% 24%)`, "--bd": `hsl(${hh} ${34 * s}% 83%)`, "--glow": `hsl(${hh} ${75 * s}% 24% / .22)`, "--net": hsl2rgb(hh, 75 * s, 24), "--bt": "#fff" };
+    },
+    /* a chalk-drawn square with a sigma, a little dust and a tick mark */
+    logo(u, sz, big, label) {
+      return wrap(u, sz, big, label,
+        '<g class="chalk-wob">'
+        + '<path d="M13 9.5C25 8 40 9 51 8.5C55 8.5 56 10 55.6 14C56.4 26 55 40 55.4 51C55.5 55 54 56 50 55.7C38 56.6 24 55 13.5 55.6C9.5 55.7 8.6 54 8.8 50C8 38 9.2 25 8.6 14C8.5 10.5 10 9.6 13 9.5Z" style="fill:rgba(var(--net),.1)" stroke="url(#' + u + 'g)" stroke-width="3" stroke-linejoin="round"/>'
+        + '<path d="M41.5 19.5H23L33.5 32L23 44.5H42" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>'
+        + '<path d="M14 49.5L17 52.5L22 46.5" fill="none" stroke="var(--ac2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>'
+        + "</g>"
+        + spark("blip", 54, 10, 5) + '<circle class="blip b2" cx="10" cy="14" r="1.6" style="fill:var(--ac2)"/><circle class="blip b3" cx="57" cy="50" r="1.4" style="fill:var(--ac)"/>');
+    },
+    logoDesc: "a chalk-drawn square with a sigma",
+    bg(cv) {
+      const SYM = ["Σ", "∀", "∃", "∈", "⊆", "∪", "∩", "⇒", "∘", "ℤ", "n+1", "∅", "f⁻¹", "≤", "∑ k", "P(k)", "Π", "⌊x⌋"];
+      let P = [];
+      const mk = (init, W, H) => ({ ch: SYM[(rnd() * SYM.length) | 0], x: rnd() * W, y: init ? rnd() * H : H + 40, sz: 16 + rnd() * 26, vy: 0.05 + rnd() * 0.12, vx: (rnd() - 0.5) * 0.05, rot: (rnd() - 0.5) * 0.5, rv: (rnd() - 0.5) * 0.0006, a: 0.5 + rnd() * 0.5, ph: rnd() * TAU });
+      loop(cv, "chalk",
+        (s) => { const n = clamp(Math.round(s.W * s.H / 42000), 10, 30); P = []; for (let i = 0; i < n; i++) P.push(mk(true, s.W, s.H)); },
+        (cx, s, t, still) => {
+          const W = s.W, H = s.H, c = netColor("236,240,226"), dark = isDark(), step = 36;
+          cx.clearRect(0, 0, W, H);
+          /* soft light across the board (dark) or the page (light) */
+          const g = cx.createRadialGradient(W * 0.3, H * 0.2, 0, W * 0.3, H * 0.2, Math.max(W, H) * 0.8);
+          g.addColorStop(0, "rgba(" + c + "," + (dark ? 0.06 : 0.05) + ")"); g.addColorStop(1, "rgba(" + c + ",0)"); cx.fillStyle = g; cx.fillRect(0, 0, W, H);
+          /* very faint grid, every fifth line a little stronger; it creeps slowly sideways */
+          const off = still ? 0 : (t / 1000 * 1.2) % (step * 5);
+          cx.lineWidth = 1;
+          for (let i = -5; i * step - off < W + step * 5; i++) {
+            const x = Math.round(i * step - off) + 0.5; if (x < -2 || x > W + 2) continue;
+            cx.strokeStyle = "rgba(" + c + "," + (i % 5 === 0 ? (dark ? 0.065 : 0.12) : (dark ? 0.035 : 0.06)) + ")";
+            cx.beginPath(); cx.moveTo(x, 0); cx.lineTo(x, H); cx.stroke();
+          }
+          for (let j = 0; j * step < H + step; j++) {
+            const y = Math.round(j * step) + 0.5;
+            cx.strokeStyle = "rgba(" + c + "," + (j % 5 === 0 ? (dark ? 0.065 : 0.12) : (dark ? 0.035 : 0.06)) + ")";
+            cx.beginPath(); cx.moveTo(0, y); cx.lineTo(W, y); cx.stroke();
+          }
+          /* chalk symbols drifting up */
+          cx.textAlign = "center"; cx.textBaseline = "middle";
+          for (const m of P) {
+            if (!still) { m.y -= m.vy; m.x += m.vx; m.rot += m.rv; if (m.y < -50) Object.assign(m, mk(false, W, H)); }
+            const al = m.a * (0.8 + 0.2 * Math.sin(t / 2500 + m.ph)) * (dark ? 0.15 : 0.12);
+            cx.save(); cx.translate(m.x, m.y); cx.rotate(m.rot);
+            cx.font = "italic " + Math.round(m.sz) + 'px Georgia,"Times New Roman",serif';
+            cx.fillStyle = "rgba(" + c + "," + al + ")"; cx.fillText(m.ch, 0, 0);
+            cx.restore();
+          }
+        });
+    }
+  };
+
+  window.CSQ_LOOKS = Object.freeze({ origins: Object.freeze(origins), cosmos: Object.freeze(cosmos), chalk: Object.freeze(chalk) });
 })();

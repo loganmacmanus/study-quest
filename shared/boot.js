@@ -27,14 +27,22 @@
     const uid = CSQ.session.user.id, board = CSQ.boardAdapter(GUIDE.id);
     window.CSQ_DB = Object.freeze({ use: async (n) => n === "db" ? board : n === "user" ? { id: async () => uid } : null });
 
-    const s = document.createElement("script"); s.src = "../shared/app.js?v=12"; s.defer = true;
+    // optional Proofs feature: only guides whose content has an "X" object load proofs.js (before app.js)
+    const hasX = data.X && typeof data.X === "object" && !Array.isArray(data.X);
+    if (hasX) window.X = data.X;
+    const s = document.createElement("script"); s.src = "../shared/app.js?v=13"; s.defer = true;
     s.onload = () => {
       const bar = document.getElementById("acct");
       bar.hidden = false;
       bar.innerHTML = '<a href="../">All guides</a> · ' + (CSQ.isOwner() ? '<a href="../admin.html">Admin</a> · ' : "") + '<a href="../privacy.html">Privacy</a> · <a href="../terms.html">Terms</a> · <button type="button" id="signout">Sign out</button>';
       document.getElementById("signout").onclick = CSQ.signOut;
     };
-    document.body.appendChild(s);
+    if (hasX) {
+      const p = document.createElement("script"); p.src = "../shared/proofs.js?v=1"; p.defer = true;
+      p.onload = () => document.body.appendChild(s);
+      p.onerror = () => { delete window.X; document.body.appendChild(s); };
+      document.body.appendChild(p);
+    } else document.body.appendChild(s);
   };
   CSQ.start();
 })();

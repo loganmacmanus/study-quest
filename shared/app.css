@@ -189,3 +189,31 @@ figure{margin:12px 0;color:var(--ac)}figure figcaption{color:var(--mut);font-siz
 :focus-visible{outline:3px solid var(--ac);outline-offset:2px}
 
 @media(max-width:560px){.tog{display:flex;flex-wrap:nowrap;width:100%;margin-right:0}.tog button{flex:1 1 auto;padding:9px 6px;line-height:1.2;white-space:nowrap}.stat div{flex:1 1 calc(50% - 6px)}}
+
+/* ---- Proofs tab (proofs.js): px- classes only ---- */
+.px-tog{flex-wrap:wrap!important;width:100%}
+.px-tog button{flex:1 1 auto;white-space:normal!important}
+.px-outline{margin-bottom:12px}.px-count{margin:8px 2px}
+.px-tw{overflow-x:auto;margin:8px 0}
+.px-table{border-collapse:collapse;width:100%;font-size:14px;min-width:300px}
+.px-table th,.px-table td{border-bottom:1px solid var(--bd);padding:6px 8px;text-align:left;vertical-align:top}
+.px-table th{color:var(--mut);font-size:12px;letter-spacing:.04em}
+.px-card{text-align:left;margin:0 0 14px;overflow-wrap:anywhere}
+.px-card h3{margin:4px 0 6px}
+.px-row{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin:10px 0}
+.px-row .btn{width:auto;margin-top:0}
+.px-ans,.px-proof{margin-top:10px;padding:10px 12px;border:1px solid var(--bd);border-left:4px solid var(--ac);border-radius:10px;background:var(--bg2)}
+.px-ans[hidden],.px-fb[hidden]{display:none}
+.px-line{padding:3px 0;line-height:1.5}
+.px-qed{text-align:right;font-size:20px;color:var(--ac)}
+.px-pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;font-family:inherit;line-height:1.5;margin:8px 0}
+.px-pick{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}
+.px-pick .btn{width:auto;margin-top:0;text-align:left}
+.px-lab{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--mut)}
+.px-in{width:96px;min-height:44px;padding:6px 10px;border-radius:10px;border:2px solid var(--bd);background:var(--bg2);color:var(--tx);font-size:16px}
+.px-in:focus-visible{border-color:var(--ac)}
+.px-done{border-color:var(--ok);color:var(--ok)}
+.px-fb:focus{outline:none}
+
+/* six or more tabs (a guide with the Proofs tab): stack icon over label on phones */
+@media(max-width:560px){#tabs.many{gap:3px;padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}#tabs.many .tab{min-width:0;flex:1 1 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:4px 1px;font-size:11.5px;line-height:1.15;min-height:48px}#tabs.many .tab .ti{font-size:17px;line-height:1}}
