@@ -3,8 +3,9 @@
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#14261f">
 <link rel="stylesheet" href="../fonts.css">
-<link rel="stylesheet" href="../shared/app.css?v=4">
-<link rel="preload" href="../shared/app.js?v=14" as="script">
+<link rel="stylesheet" href="../shared/app.css?v=5">
+<link rel="stylesheet" href="../shared/extras.css?v=1">
+<link rel="preload" href="../shared/app.js?v=15" as="script">
 <style>
 /* look: chalk. Math class: a green chalkboard (dark, the default) and clean graph paper (light).
    Dark = deep slate green with chalk-white text, chalk yellow and soft blue accents. Light = off-white paper with ink-blue accent and red-pen secondary.
@@ -19,7 +20,8 @@
 :root[data-theme="light"] #hud{border-bottom:2px solid var(--ac2)}
 .chalk-wob{animation:chalkwob 6s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 50%}
 @keyframes chalkwob{0%,100%{transform:rotate(-1.5deg)}50%{transform:rotate(1.5deg)}}
-@media(prefers-reduced-motion:reduce){.chalk-wob{animation:none}}
+@media(prefers-reduced-motion:reduce){html:not(.sq-anim-on) .chalk-wob{animation:none}}
+html.sq-anim-off .chalk-wob{animation:none}
 </style>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect x=%224%22 y=%224%22 width=%2256%22 height=%2256%22 rx=%2212%22 fill=%22%2314261f%22/%3E%3Cpath d=%22M43 18H21L33 32L21 46H44%22 fill=%22none%22 stroke=%22%232f7d5b%22 stroke-width=%225%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/%3E%3C/svg%3E"></head><body>
 <canvas id="bg" aria-hidden="true"></canvas>
@@ -45,5 +47,5 @@
 <div class="ov" id="lv" role="dialog" aria-modal="true" aria-labelledby="lvt"></div>
 
 <div id="auth"></div><div id="acct" hidden></div>
-<script src="../config.js"></script><script src="../shared/looks.js?v=2"></script><script src="../web.js?v=11"></script><script src="guide.js"></script><script src="../shared/boot.js?v=14"></script>
+<script src="../config.js"></script><script src="../shared/looks.js?v=3"></script><script src="../web.js?v=12"></script><script src="../shared/suggest.js?v=1"></script><script src="guide.js"></script><script src="../shared/boot.js?v=15"></script>
 </body></html>
