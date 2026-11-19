@@ -1,0 +1,7 @@
+{"items":[
+ {"t":"2026-11-18T00:27:10Z","type":"guide","title":"Study Quest hub","body":"The hub with CS 379 Ethical Hacking (Test 2), CR 370 Origins (Test 3) and SC 141 Astronomy (Test 3). One sign-in works for every guide, with separate callsigns and leaderboards.","guides":["cs379","cr370","sc141"]},
+ {"t":"2026-11-18T00:58:37Z","type":"fix","title":"Cleaner layout","body":"Chapter cards, buttons, footer and stat tiles are lined up.","guides":[]},
+ {"t":"2026-11-18T03:56:40Z","type":"guide","title":"New guide: MA 224 Discrete Math (Test 3)","body":"Sections 5.1 to 7.3, with a Proofs tab: workshop, proof builder, counterexamples and find the error.","guides":["ma224"]},
+ {"t":"2026-11-18T05:14:31Z","type":"feature","title":"Side menu","body":"A menu button in every guide lets you switch guides from anywhere.","guides":[]},
+ {"t":"2026-11-19T00:08:00Z","type":"feature","title":"Study tools update","body":"Knowledge studied progress and daily streaks, review of missed questions and weak spots, timed tests, saved questions, search and a printable cheat sheet. A Verses page for CR 370 and a Planets page for SC 141. A suggestion box and Report a problem button. Hub music, mute and animation settings, and back up and restore for your progress.","guides":[]}
+]}

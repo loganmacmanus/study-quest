@@ -187,5 +187,48 @@
     };
   }
 
-  window.CSQ = { root: ROOT, cfg: CFG, start, signOut, isOwner, call, get session() { return sess; }, set onReady(f) { onReady = f; }, boardAdapter, esc };
+  /* ---------- suggestion box (supabase: public.suggestions) ---------- */
+  const GUIDE_ID = /^[a-z0-9-]{2,32}$/, QID = /^(s|ga|gd)\d{1,5}$/;
+  // CSQ.suggest({kind: "idea"|"problem", body, guide: guide id or "hub", qid?, qtext?, page?}) -> Promise; rejects with a readable Error.message
+  async function suggest(o) {
+    o = o && typeof o === "object" ? o : {};
+    const kind = o.kind === "problem" ? "problem" : o.kind === "idea" ? "idea" : "";
+    const body = typeof o.body === "string" ? o.body.trim() : "";
+    const guide = typeof o.guide === "string" && (o.guide === "hub" || GUIDE_ID.test(o.guide)) ? o.guide : "";
+    if (!kind) throw new Error("Pick a type: suggestion or problem.");
+    if (!body) throw new Error("Write a few words first.");
+    if (body.length > 1000) throw new Error("That is too long. Keep it under 1000 characters.");
+    if (!guide) throw new Error("Could not tell which page this is from.");
+    const qid = typeof o.qid === "string" && QID.test(o.qid) ? o.qid : null;
+    const qtext = typeof o.qtext === "string" && o.qtext.trim() ? o.qtext.trim().slice(0, 500) : null;
+    const page = typeof o.page === "string" && o.page.trim() ? o.page.trim().slice(0, 40) : null;
+    if (!sess) throw new Error("Sign in first, then try again.");
+    try { await call("/rest/v1/suggestions", { method: "POST", headers: { Prefer: "return=minimal" }, body: { guide, kind, body, qid, qtext, page } }); }
+    catch (e) {
+      if (e.code === "P0001" && e.message) throw new Error(e.message); // the server's own rate-limit wording
+      if (e.status === 401 || e.status === 403) throw new Error("Only signed-in, approved people can send suggestions. Please sign in again.");
+      if (!e.status) throw new Error("Could not reach the server. Check your connection and try again.");
+      if (e.status === 400 || e.status === 422) throw new Error("That could not be sent. Check the text and try again.");
+      throw new Error("Could not send that right now. Please try again later.");
+    }
+  }
+
+  /* ---------- answer statistics (supabase: public.record_answers) ---------- */
+  // CSQ.recordAnswers(guideId, [{k: "s12", ok: true}, ...]): fire-and-forget; sends in chunks of 100 (at most 400 answers); never throws
+  async function recordAnswers(guideId, rows) {
+    try {
+      if (!sess || typeof guideId !== "string" || !GUIDE_ID.test(guideId) || !Array.isArray(rows)) return;
+      const list = [];
+      for (const r of rows) {
+        if (r && typeof r === "object" && typeof r.k === "string" && QID.test(r.k) && typeof r.ok === "boolean") list.push({ k: r.k, ok: r.ok });
+        if (list.length >= 400) break;
+      }
+      for (let i = 0; i < list.length; i += 100) {
+        try { await call("/rest/v1/rpc/record_answers", { method: "POST", body: { p_guide: guideId, p_rows: list.slice(i, i + 100) } }); }
+        catch (e) { if (e && (e.status === 401 || e.status === 403 || e.code === "P0001")) return; } // not allowed or rate-limited: stop quietly
+      }
+    } catch (e) { /* statistics must never get in the way of studying */ }
+  }
+
+  window.CSQ = { root: ROOT, cfg: CFG, start, signOut, isOwner, call, get session() { return sess; }, set onReady(f) { onReady = f; }, boardAdapter, esc, suggest, recordAnswers };
 })();

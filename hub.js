@@ -9,6 +9,26 @@
   const PREF = "hub_prefs";
   const root = document.documentElement;
 
+  /* ---------- global preferences (sq_prefs, contract C1): animation classes on <html> as early as possible ---------- */
+  function sqPrefs() {
+    let o = null; try { o = JSON.parse(localStorage.getItem("sq_prefs")); } catch (e) { o = null; }
+    o = o && typeof o === "object" && !Array.isArray(o) ? o : {};
+    return { mute: o.mute === 1 || o.mute === true ? 1 : 0, anim: o.anim === "on" || o.anim === "off" ? o.anim : "auto", hubmus: o.hubmus === 0 || o.hubmus === false ? 0 : 1 };
+  }
+  function applyPrefs() {
+    const p = sqPrefs();
+    root.classList.toggle("sq-anim-on", p.anim === "on"); root.classList.toggle("sq-anim-off", p.anim === "off"); root.classList.toggle("sq-muted", p.mute === 1);
+    const m = $("#hmus");
+    if (m) {
+      const playing = p.hubmus && !p.mute;
+      m.textContent = playing ? "🎵" : "🔇"; m.classList.toggle("off", !playing); m.setAttribute("aria-pressed", String(!!p.hubmus));
+      m.title = p.mute ? "Hub music (all sounds are muted in Settings)" : p.hubmus ? "Hub music is on" : "Hub music is off";
+    }
+  }
+  applyPrefs();
+  addEventListener("sq-prefs", applyPrefs);
+  addEventListener("storage", (e) => { if (e.key === "sq_prefs" || e.key === null) applyPrefs(); });
+
   /* ---------- theme ---------- */
   function readPrefs() { try { const o = JSON.parse(localStorage.getItem(PREF)); return o && typeof o === "object" ? o : {}; } catch (e) { return {}; } }
   function savedTheme(guides) {
@@ -83,7 +103,37 @@
     let xp = Math.floor(+s.xp); xp = Number.isFinite(xp) && xp >= 0 ? Math.min(xp, 1e7) : 0;
     const kn = s.known && typeof s.known === "object" && !Array.isArray(s.known) ? Object.keys(s.known).length : 0;
     const pct = g.cards > 0 ? Math.min(100, Math.round(100 * kn / g.cards)) : 0;
-    return { xp, level: Math.floor(xp / PER) + 1, known: kn, pct };
+    // Knowledge studied (contract C2): S.ks = {d, n}; missing when the guide has not been opened since the update
+    const k = s.ks && typeof s.ks === "object" && !Array.isArray(s.ks) ? s.ks : null;
+    let ks = null;
+    if (k && Number.isInteger(k.d) && Number.isInteger(k.n) && k.n > 0 && k.n <= 1e5 && k.d >= 0) { const d = Math.min(k.d, k.n); ks = { d, n: k.n, pct: Math.min(100, Math.round(100 * d / k.n)) }; }
+    return { xp, level: Math.floor(xp / PER) + 1, known: kn, pct, ks };
+  }
+
+  /* ---------- daily streak: consecutive local days ending today or yesterday, in the union of every guide's S.dd ---------- */
+  const dstr = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  function streakOf(dates, now) {
+    const set = new Set();
+    for (const v of dates) if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) set.add(v);
+    const d = new Date((now || new Date()).getFullYear(), (now || new Date()).getMonth(), (now || new Date()).getDate());
+    const today = set.has(dstr(d));
+    if (!today) d.setDate(d.getDate() - 1);
+    let n = 0;
+    while (set.has(dstr(d)) && n < 400) { n++; d.setDate(d.getDate() - 1); }
+    return { n, today };
+  }
+  function allDates(list) {
+    const out = [];
+    for (const g of list) { const st = readState(g); if (st && Array.isArray(st.dd)) out.push(...st.dd.slice(-120)); }
+    return out;
+  }
+  function paintStreak() {
+    const box = $("#streak"); if (!box) return;
+    const r = streakOf(allDates(guides));
+    box.textContent = "";
+    const fire = el("span", "fire", "🔥"); fire.setAttribute("aria-hidden", "true");
+    box.append(fire, r.n > 0 ? r.n + "-day streak" + (r.today ? "" : ". Study today to keep your streak") : "Study today to start a streak");
+    box.hidden = false;
   }
 
   /* ---------- rendering (DOM nodes + textContent: nothing is parsed as HTML) ---------- */
@@ -106,12 +156,14 @@
     } else st.appendChild(el("span", "mut", "Not started"));
     a.appendChild(st);
 
-    const pct = p ? p.pct : 0, bar = el("div", "bar"), fill = el("i");
-    bar.setAttribute("role", "progressbar"); bar.setAttribute("aria-label", g.name + " cards known");
+    const ks = p && p.ks, pct = p ? (ks ? ks.pct : p.pct) : 0, bar = el("div", "bar"), fill = el("i");
+    const kl = el("div", "gklab"); kl.append(el("span", "", "Knowledge studied"), el("span", "", pct + "%")); a.appendChild(kl);
+    bar.setAttribute("role", "progressbar"); bar.setAttribute("aria-label", g.name + " knowledge studied");
     bar.setAttribute("aria-valuemin", "0"); bar.setAttribute("aria-valuemax", "100"); bar.setAttribute("aria-valuenow", String(pct));
     fill.style.width = pct + "%"; bar.appendChild(fill); a.appendChild(bar);
     a.appendChild(el("div", "gprog", ""));
-    const pr = a.lastChild; pr.append(el("span", "", p ? p.known + " of " + g.cards + " cards known" : "No progress yet"), el("span", "", pct + "%"));
+    const pr = a.lastChild; pr.append(el("span", "", !p ? "No progress yet" : ks ? ks.d + " of " + ks.n + " topics" : p.known + " of " + g.cards + " cards known"));
+    if (p && !ks) pr.append(el("span", "", "open the guide to update"));
     a.appendChild(el("div", "gcta", p ? "Continue →" : "Start →"));
     li.appendChild(a); return li;
   }
@@ -139,7 +191,24 @@
     applyTheme(savedTheme(guides));
     const ul = el("ul", "glist");
     list.forEach((g) => ul.appendChild(card(g)));
-    box.textContent = ""; box.appendChild(ul); paint();
+    box.textContent = ""; box.appendChild(ul); paint(); paintStreak();
+  }
+
+  /* ---------- updates bell ---------- */
+  function bell() {
+    const S = window.SQ_SHELL, a = $("#bell"), d = $("#bdot"); if (!S || !a || !d) return;
+    S.checkUpdates("updates.json").then((r) => {
+      d.hidden = r.unseen === 0; d.classList.toggle("guide", r.guide); d.textContent = r.guide ? "NEW" : "";
+      a.setAttribute("aria-label", r.unseen ? (r.guide ? "Updates: a new guide was added" : "Updates: " + r.unseen + " new") : "Updates");
+    });
+  }
+
+  /* ---------- settings dialog ---------- */
+  function openSettings() {
+    const S = window.SQ_SHELL; if (!S) return;
+    const m = S.modal({ title: "Settings" });
+    S.settings(m.dlg, { guides: () => guides });
+    const first = m.dlg.querySelector("button.sq-r"); if (first) first.focus();
   }
 
   function footer() {
@@ -147,7 +216,9 @@
     const mk = (href, txt) => { const a = el("a", "", txt); a.href = href; return a; };
     if (window.CSQ.isOwner()) f.appendChild(mk("admin.html", "Admin"));
     f.append(mk("privacy.html", "Privacy"), mk("terms.html", "Terms"));
+    if (window.SQ_SHELL) { const st = el("button", "", "Settings"); st.type = "button"; st.id = "sett"; st.setAttribute("aria-haspopup", "dialog"); st.onclick = openSettings; f.appendChild(st); }
     const b = el("button", "", "Sign out"); b.type = "button"; b.onclick = window.CSQ.signOut; f.appendChild(b);
+    f.appendChild(el("span", "cp", "© 2026 Logan MacManus. All rights reserved."));
   }
 
   /* ---------- start ---------- */
@@ -161,6 +232,12 @@
 
   const CSQ = window.CSQ;
   if (!CSQ) { $("#guides").textContent = "Sign-in failed to load."; $("#main").hidden = false; return; }
-  CSQ.onReady = function () { $("#main").hidden = false; footer(); load(); };
+  const hm = $("#hmus");
+  if (hm) hm.onclick = () => { if (window.SQ_SHELL) window.SQ_SHELL.setPrefs({ hubmus: sqPrefs().hubmus ? 0 : 1 }); };
+  CSQ.onReady = function () {
+    $("#main").hidden = false; footer(); load(); bell();
+    if (window.SQ_SUGGEST) window.SQ_SUGGEST.enable();
+    if (window.SQ_HUBMUS) window.SQ_HUBMUS.arm();
+  };
   CSQ.start();
 })();

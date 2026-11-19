@@ -31,6 +31,7 @@ h1,h2,h3{font-family:var(--fd);margin:0;text-wrap:balance}
 @keyframes led{0%{box-shadow:0 0 0 0 rgba(255,107,107,.6),0 0 10px var(--red)}70%,100%{box-shadow:0 0 0 9px rgba(255,107,107,0),0 0 10px var(--red)}}
 #bar nav{display:flex;align-items:center;gap:14px;font-size:14px}
 #bar nav a{display:inline-flex;align-items:center;min-height:40px}
+#bar nav a[hidden]{display:none}
 #bar .lnk{margin:0;min-height:40px;padding:6px 14px;border:1px solid var(--line2);border-radius:6px;text-decoration:none;color:var(--tx);font-weight:600}
 /* counters */
 #stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px;margin-bottom:14px}
@@ -88,10 +89,40 @@ h2+.req,h3+.req{border-top:0}
 .err{color:var(--red);min-height:22px;font-size:14px;font-weight:600;margin:6px 0}
 .spin{width:34px;height:34px;margin:8px auto 14px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--red);animation:spin 1s linear infinite}
 .consent{margin:12px 0 0!important}.consent a{color:var(--red)}
+/* suggestions inbox + quiz stats (added Nov 2026; same look, new classes only) */
+.cnt{display:inline-flex;align-items:center;justify-content:center;min-width:22px;padding:0 8px;margin-left:8px;border:1px solid var(--warn);color:var(--warn);border-radius:11px;font:700 12px/20px var(--fd);letter-spacing:.04em;vertical-align:middle;white-space:nowrap}
+.cnt[hidden]{display:none}
+h2:focus{outline:none}h2[tabindex]:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px}
+.btn.g[aria-pressed="true"]{background:rgba(255,107,107,.18);border-color:var(--red);color:#fff}
+.bulk{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:8px 0 10px}
+.bulk .acts{align-items:center}
+.chk{display:inline-flex;align-items:center;gap:10px;min-height:44px;min-width:44px;cursor:pointer;flex:none}
+.chk input{width:22px;height:22px;margin:0;accent-color:var(--redbtn);flex:none}
+.sg{display:flex;gap:6px;padding:10px 0 12px;border-top:1px solid var(--line)}
+.sg.unread{box-shadow:inset 3px 0 0 var(--warn);padding-left:10px}
+.sg .main{min-width:0;flex:1}
+.sg .meta{overflow-wrap:anywhere;color:var(--mut);font-size:13px;font-variant-numeric:tabular-nums;margin-top:2px}
+.sg .meta b{color:var(--tx);font-weight:600}
+.sg p.txt{margin:6px 0 4px;white-space:pre-wrap;overflow-wrap:anywhere}
+.sg blockquote{margin:8px 0 4px;padding:6px 10px;border-left:2px solid var(--line2);background:rgba(0,0,0,.25);color:var(--mut);font-size:14px;overflow-wrap:anywhere}
+.sg blockquote .kick{margin-bottom:2px}
+.sgacts{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+.ask{font-weight:600;font-size:14px;color:var(--warn);margin-right:2px}
+.card select.ain{appearance:auto;cursor:pointer}
+.card select.ain option{background:#12090c;color:var(--tx)}
+.qlist{list-style:none;margin:10px 0 0;padding:0}
+.qrow{padding:10px 0 12px;border-top:1px solid var(--line)}
+.qrow .qtop{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px}
+.qrow .pct{font:700 22px var(--fd);color:var(--red);font-variant-numeric:tabular-nums}
+.mbar{height:6px;margin:6px 0;background:#0a0405;border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.mbar i{display:block;height:100%;background:var(--red)}
+.qrow p{margin:4px 0 0;overflow-wrap:anywhere}
+.qrow .mono{font-family:ui-monospace,Menlo,Consolas,monospace}
 @media(max-width:420px){#bar h1{font-size:16px}.card{padding:16px 12px}.acts .btn{flex:1 1 auto}}
 @media(prefers-reduced-motion:reduce){body::after{display:none}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.led{animation:none}.tag.warn::before{animation:none}}
 </style></head><body>
-<div class="wrap"><div id="bar" hidden><h1><i class="led" aria-hidden="true"></i><span>CONTROL ROOM</span> <b>· Study Quest</b></h1><nav aria-label="Admin"><a href="./">Study guide</a><button type="button" id="signout" class="lnk">Sign out</button></nav></div><section id="stats" aria-label="Totals" hidden></section><main id="admin"></main></div>
+<div class="wrap"><div id="bar" hidden><h1><i class="led" aria-hidden="true"></i><span>CONTROL ROOM</span> <b>· Study Quest</b></h1><nav aria-label="Admin"><a href="./">Study guide</a><a href="#sugg" id="gosugg" hidden>Inbox<span class="cnt" id="navcnt" hidden></span></a><button type="button" id="signout" class="lnk">Sign out</button></nav></div><section id="stats" aria-label="Totals" hidden></section><main id="admin"></main><section id="sugg" aria-labelledby="sg-h" hidden></section><section id="qst" aria-labelledby="qs-h" hidden></section></div>
 <div id="auth"></div><div id="toast" role="status" hidden></div>
-<script src="config.js"></script><script src="web.js?v=11"></script><script src="admin.js?v=10"></script>
+<script src="config.js"></script><script src="web.js?v=12"></script><script src="admin.js?v=11"></script>
 </body></html>
