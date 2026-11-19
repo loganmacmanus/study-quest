@@ -8,12 +8,19 @@ const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'
 const KEYS=Object.keys(CH);
 const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
 const KN=GUIDE.kindNames||{},KIND={s:(KN.s&&KN.s[0])||'Scenario',d:(KN.d&&KN.d[0])||'Definition',a:(KN.a&&KN.a[0])||'Acronym'};
-const reduce=()=>window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+/* global preferences (contract C1): localStorage sq_prefs = {mute:0|1, anim:'auto'|'on'|'off'}; validated every read */
+const PRK='sq_prefs';
+function prefs(){const p={mute:0,anim:'auto'};try{const o=JSON.parse(localStorage.getItem(PRK)||'null');if(o&&typeof o==='object'&&!Array.isArray(o)){p.mute=o.mute===1||o.mute===true?1:0;p.anim=o.anim==='on'||o.anim==='off'?o.anim:'auto'}}catch(e){}return p}
+let PR=prefs();
+const reduce=()=>PR.anim==='off'?true:PR.anim==='on'?false:!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+function applyPrefs(){const c=document.documentElement.classList;c.toggle('sq-anim-on',PR.anim==='on');c.toggle('sq-anim-off',PR.anim==='off')}
+function onPrefs(){PR=prefs();applyPrefs();if(PR.mute)musicOff();else if(AC&&S.mus&&S.name&&!document.hidden)musicOn()}
+applyPrefs();addEventListener('sq-prefs',onPrefs);addEventListener('storage',e=>{if(e.key===PRK||e.key===null)onPrefs()});
 const XN=c=>GUIDE.extraChapterNames&&GUIDE.extraChapterNames[c];const SECM=c=>/^(Section\s+[^:]+):\s*(.+)$/.exec((window.CH&&CH[c]&&CH[c][0])||'');const chName=c=>XN(c)||(SECM(c)?'Sec '+c:'Ch '+c);const chTitle=c=>XN(c)||(SECM(c)?SECM(c)[1]:'Chapter '+c);const chSub=c=>{const n=String((CH[c]||[''])[0]),x=XN(c),m=SECM(c);return m?m[2]:(x&&n.toLowerCase().startsWith(x.toLowerCase())?'Class notes':n)};const UNITS=()=>Object.keys(CH).every(k=>SECM(k))?'Sections':'Chapters';
 
 /* ---------- state ---------- */
 const SK=GUIDE.storageKey;
-let S={name:'',xp:0,hist:[],theme:null,snd:1,mus:1,known:{},cd:{},badges:{},best:0,ans:0,cor:0,bestTest:0,bestQuiz:0,rivals:[],qs:0};
+let S={name:'',xp:0,hist:[],theme:null,snd:1,mus:1,known:{},cd:{},badges:{},best:0,ans:0,cor:0,bestTest:0,bestQuiz:0,rivals:[],qs:0,qr:{},fv:{},dd:[],ks:null,bm:{}};
 try{let raw=localStorage.getItem(SK);if(!raw){for(const lk of (GUIDE.legacyKeys||[])){raw=localStorage.getItem(lk);if(raw)break}if(raw){const o=JSON.parse(raw);delete o.done;o.cd={};raw=JSON.stringify(o)}}if(raw)Object.assign(S,JSON.parse(raw))}catch(e){}
 /* validate everything read from storage: it is untrusted input */
 (function clean(){const num=(v,max)=>{v=Math.floor(+v);return Number.isFinite(v)&&v>=0?Math.min(v,max):0};const obj=v=>v&&typeof v==='object'&&!Array.isArray(v)?v:{};
@@ -23,9 +30,15 @@ try{let raw=localStorage.getItem(SK);if(!raw){for(const lk of (GUIDE.legacyKeys|
   S.acc=typeof S.acc==='string'&&/^[a-z]{2,10}$/.test(S.acc)?S.acc:'cyber';
   S.known=obj(S.known);S.cd=obj(S.cd);S.badges=obj(S.badges);delete S.rivals;
   {const o=obj(S.px),px={};Object.keys(o).slice(0,500).forEach(k=>{if(k.length<=40&&o[k])px[k]=1});S.px=px}
+  /* per-question records (qr), flashcard backs viewed (fv), study days (dd), knowledge-studied summary (ks): see contract C2 */
+  {const o=obj(S.qr),q={};let n=0;for(const k of Object.keys(o)){if(n>=3000)break;const v=o[k];if(!/^(s|ga|gd)\d{1,5}$/.test(k)||!v||typeof v!=='object')continue;q[k]={r:num(v.r,9999),w:num(v.w,9999),l:v.l?1:0,s:num(v.s,9999)};n++}S.qr=q}
+  {const o=obj(S.fv),f={};let n=0;for(const k of Object.keys(o)){if(n>=3000)break;if(o[k]&&/^(g\d{1,5}|[A-Za-z0-9]{1,8}:\d{1,5})$/.test(k)){f[k]=1;n++}}S.fv=f}
+  {const okd=d=>{if(typeof d!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(d)||d<'2000-01-01'||d>'2100-12-31')return false;const t=new Date(d+'T00:00:00Z');return !isNaN(t)&&t.toISOString().slice(0,10)===d};S.dd=Array.isArray(S.dd)?[...new Set(S.dd.slice(0,2000).filter(okd))].sort().slice(-120):[]}
+  {const o=obj(S.bm),b={};let n=0;for(const k of Object.keys(o)){if(n>=1000)break;if(o[k]&&k.length<=40&&/^(n:[A-Za-z0-9]{1,8}:\d{1,5}|g:\d{1,5}|q:(s|ga|gd)\d{1,5}|pg:[a-z0-9-]{2,20}:\d{1,3}:\d{1,4})$/.test(k)){b[k]=1;n++}}S.bm=b} /* bookmarks (A2): see contract C2 */
+  {const o=obj(S.ks),n=num(o.n,1e5);S.ks={d:Math.min(num(o.d,1e5),n),n,t:num(o.t,1e14)}}
   S.hist=Array.isArray(S.hist)?S.hist.filter(h=>h&&typeof h==='object').slice(-200).map(h=>({mode:h.mode==='test'?'test':'quiz',scope:String(h.scope||'').slice(0,80),pct:num(h.pct,100),n:num(h.n,1e4),t:num(h.t,1e14)})):[];
 })();
-const save=()=>{try{localStorage.setItem(SK,JSON.stringify(S))}catch(e){}};
+const save=()=>{try{S.ks=ksCalc()}catch(e){}try{localStorage.setItem(SK,JSON.stringify(S))}catch(e){}};
 
 /* ---------- question bank ---------- */
 const ALLQ=[];
@@ -52,6 +65,33 @@ const conf=(a,b)=>GR.some(r=>r.includes(a)&&r.includes(b));
   });
 })();
 const POOLN=c=>ALLQ.filter(q=>q.c===c).length;
+const QBY={};ALLQ.forEach(q=>{QBY[q.k]=q});
+/* ---------- study records: knowledge studied, missed questions, weak spots, study days (S.qr / S.fv / S.dd / S.ks) ---------- */
+const WEAK=.7; /* a chapter is a weak spot when its accuracy is under 70% */
+function kstat(){const by={};let d=0,n=0;const add=(c,hit)=>{n++;if(hit)d++;if(CH[c]){const b=by[c]||(by[c]=[0,0]);b[1]++;if(hit)b[0]++}};
+  KEYS.forEach(c=>(N[c]||[]).forEach((_,i)=>{const k=c+':'+i;add(c,S.known[k]||S.fv[k])}));
+  G.forEach((g,i)=>{const k='g'+i;add(g[0],S.known[k]||S.fv[k])});
+  ALLQ.forEach(q=>{const r=S.qr[q.k];add(q.c,r&&r.l===1)});
+  return{d,n,by}}
+const ksCalc=()=>{const k=kstat();return{d:k.d,n:k.n,t:Date.now()}};
+const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+function touchDay(){const t=ymd(new Date());if(S.dd[S.dd.length-1]!==t){if(!S.dd.includes(t))S.dd.push(t);S.dd=[...new Set(S.dd)].sort().slice(-120)}}
+function streakDays(){const set=new Set(S.dd),d=new Date();d.setHours(12,0,0,0);if(!set.has(ymd(d))){d.setDate(d.getDate()-1);if(!set.has(ymd(d)))return 0}let n=0;while(set.has(ymd(d))&&n<400){n++;d.setDate(d.getDate()-1)}return n}
+function recQ(q,ok){let o=S.qr[q.k];if(!o){if(Object.keys(S.qr).length>=3000)return;o=S.qr[q.k]={r:0,w:0,l:0,s:0}}
+  if(ok){o.r=Math.min(9999,o.r+1);o.l=1;o.s=Math.min(9999,o.s+1)}else{o.w=Math.min(9999,o.w+1);o.l=0;o.s=0}touchDay()}
+/* missed = answered wrong at least once and not yet two correct answers in a row since */
+const missed=()=>ALLQ.filter(q=>{const r=S.qr[q.k];return r&&r.w>0&&r.s<2});
+/* weak chapters for the home card: lowest lifetime accuracy first, at least 5 recorded answers, under WEAK, at most 3 */
+function weakHome(){const a={};ALLQ.forEach(q=>{const r=S.qr[q.k];if(!r)return;const o=a[q.c]||(a[q.c]=[0,0]);o[0]+=r.r;o[1]+=r.r+r.w});
+  return Object.keys(a).filter(c=>a[c][1]>=5&&a[c][0]/a[c][1]<WEAK).sort((x,y)=>a[x][0]/a[x][1]-a[y][0]/a[y][1]).slice(0,3).map(c=>({c,p:Math.round(100*a[c][0]/a[c][1]),n:a[c][1]}))}
+/* review missed: all of them when 40 or fewer, otherwise 40 picked at random with the currently-wrong ones (no correct answer since the miss) first */
+function reviewMissed(){let l=missed();if(!l.length)return;if(l.length>40)l=shuffle(l).sort((a,b)=>S.qr[a.k].s-S.qr[b.k].s).slice(0,40);start('quiz',l,'Missed questions')}
+function practiceWeak(chs){multi=chs.slice();cfg.kind='all';cfg.n='20';start('quiz')}
+/* report a problem (contract C6): hook used by the quiz feedback and the results review; A2 can add siblings here (e.g. bookmark star) */
+const hasSug=()=>!!(window.SQ_SUGGEST&&typeof window.SQ_SUGGEST.open==='function');
+/* bookmarks (S.bm): a ☆/★ toggle (aria-pressed) used on notes, glossary rows, flashcards, quiz feedback, review items and extra-page rows; toggled by one delegated click handler */
+const bmBtn=(k,lab)=>'<button type="button" class="bm'+(S.bm[k]?' on':'')+'" data-bm="'+esc(k)+'" aria-pressed="'+!!S.bm[k]+'" aria-label="Save '+esc(String(lab).slice(0,70))+'" title="'+(S.bm[k]?'Saved. Tap to remove':'Save for later')+'">'+(S.bm[k]?'★':'☆')+'</button>';
+const qExtras=q=>'<div class="sq-xt">'+bmBtn('q:'+q.k,'question: '+q.q)+(hasSug()?'<button type="button" class="sq-rep" data-rq="'+esc(q.k)+'">⚑ Report a problem</button>':'')+'</div>';
 const prog=c=>{const n=Object.keys(S.cd).filter(k=>S.cd[k]===c).length;return Math.min(100,Math.round(100*n/Math.min(60,POOLN(c)||1)))};
 
 /* ---------- levels, ranks, badges ---------- */
@@ -84,7 +124,7 @@ function ensureAudio(){
 }
 const mtof=m=>440*Math.pow(2,(m-69)/12);
 function tone(bus,f,t,dur,type,vol,atk){const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.value=f;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+(atk||.01));g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g);g.connect(bus);o.start(t);o.stop(t+dur+.05)}
-function beep(f,d,type){if(!S.snd||!ensureAudio())return;try{if(AC.state==='suspended')AC.resume();tone(sfxBus,f,AC.currentTime,d||.14,type||'sine',.7,.005)}catch(e){}}
+function beep(f,d,type){if(!S.snd||PR.mute||!ensureAudio())return;try{if(AC.state==='suspended')AC.resume();tone(sfxBus,f,AC.currentTime,d||.14,type||'sine',.7,.005)}catch(e){}}
 const sfx={ok(){beep(660,.12);setTimeout(()=>beep(880,.16),90)},bad(){beep(180,.25,'sawtooth')},lvl(){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.2,'triangle'),i*110))},tick(){beep(520,.05,'square')},click(){beep(420,.05,'triangle')}};
 /* Original music, one song per guide look (all melodies original). Notes: [16th-step, midi note, length in 16ths].
    default = techno (CS 379), origins = ambient (CR 370), cosmos = ethereal (SC 141). */
@@ -160,8 +200,8 @@ function playStep(n,t){
     if(s%4===2)hat(t,.012,.05);                               /* whisper of a shaker */
   }
 }
-function sched(){if(!AC)return;if(nextT<AC.currentTime)nextT=AC.currentTime+.05;while(nextT<AC.currentTime+.3){try{playStep(step,nextT)}catch(e){}nextT+=SIXTEENTH;step=(step+1)%(16*SONG.mel.length)}}
-function musicOn(){if(!S.mus||!ensureAudio())return;try{if(AC.state==='suspended')AC.resume();if(!musTimer){nextT=AC.currentTime+.15;step=(Math.ceil(step/16)*16)%(16*SONG.mel.length);musTimer=setInterval(sched,70)} /* resume on a bar line */try{delayN.delayTime.value=Math.min(.95,SIXTEENTH*SONG.delay);musBus.gain.value=.34*(SONG.gain||1)}catch(e){}musGain.gain.cancelScheduledValues(AC.currentTime);musGain.gain.setTargetAtTime(1,AC.currentTime,.4)}catch(e){}}
+function sched(){if(!AC||PR.mute)return;if(nextT<AC.currentTime)nextT=AC.currentTime+.05;while(nextT<AC.currentTime+.3){try{playStep(step,nextT)}catch(e){}nextT+=SIXTEENTH;step=(step+1)%(16*SONG.mel.length)}}
+function musicOn(){if(!S.mus||PR.mute||!ensureAudio())return;try{if(AC.state==='suspended')AC.resume();if(!musTimer){nextT=AC.currentTime+.15;step=(Math.ceil(step/16)*16)%(16*SONG.mel.length);musTimer=setInterval(sched,70)} /* resume on a bar line */try{delayN.delayTime.value=Math.min(.95,SIXTEENTH*SONG.delay);musBus.gain.value=.34*(SONG.gain||1)}catch(e){}musGain.gain.cancelScheduledValues(AC.currentTime);musGain.gain.setTargetAtTime(1,AC.currentTime,.4)}catch(e){}}
 function musicOff(){try{if(AC)musGain.gain.setTargetAtTime(0,AC.currentTime,.2)}catch(e){}if(musTimer){const t=musTimer;musTimer=null;setTimeout(()=>clearInterval(t),700)}}
 document.addEventListener('visibilitychange',()=>{if(document.hidden)musicOff();else if(S.mus&&S.name)musicOn()});
 
@@ -196,6 +236,7 @@ function toast(html,ms){const t=document.createElement('div');t.className='toast
   }
   size();addEventListener('resize',()=>{size()});
   if(reduce()){draw(1000);cancelAnimationFrame(raf)}else raf=requestAnimationFrame(draw);
+  addEventListener('sq-prefs',()=>{cancelAnimationFrame(raf);if(reduce()){draw(1000);cancelAnimationFrame(raf)}else raf=requestAnimationFrame(draw)});
   document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelAnimationFrame(raf);else if(!reduce())raf=requestAnimationFrame(draw)});
 })();
 
@@ -248,16 +289,21 @@ function gate(force){
 }
 
 /* ---------- XP / level up with auto-closing 3 second window ---------- */
-const lvq=[];let lvOpen=false,lvTimer=0;
+const lvq=[];let lvOpen=false,lvTimer=0,lvRaf=0,lvTo=0;
 function addXP(n,x,y){const o=lvl();S.xp=Math.min(1e7,S.xp+(n|0));save();if(x!=null)fly('+'+n+' XP',x,y);const nw=lvl();if(nw>o){for(let l=o+1;l<=nw;l++)lvq.push(l);if(!lvOpen)showLv()}pushScore()}
+/* level-up window: closes after 3 s. The ring (SVG stroke-dashoffset) is redrawn every animation frame so it drains smoothly; with animations off it steps once a second. The number counts 3-2-1. */
 function showLv(){
   const n=lvq.shift();if(!n){lvOpen=false;return}lvOpen=true;sfx.lvl();rain();vib([40,40,80]);
-  const e=$('#lv');
-  e.innerHTML='<div class="card"><div style="display:grid;place-items:center">'+emblem(n)+'</div><div class="mut" style="font-weight:800;letter-spacing:.1em">LEVEL UP</div><div class="big" id="lvt">Level '+n+'</div><p style="margin:4px 0 0;font-weight:700">'+esc(ttl(n))+'</p><div class="cnt" aria-live="off"><div class="cring" id="cring"><b id="csec">3</b></div><span class="mut" id="clab">Closing in 3 seconds</span></div><button class="btn s" id="lvx">Close now</button></div>';
-  e.classList.add('on');const t0=Date.now(),DUR=3000;
-  const fin=()=>{clearInterval(lvTimer);e.classList.remove('on');lvOpen=false;if(lvq.length)setTimeout(showLv,250)};
+  const e=$('#lv'),C=2*Math.PI*20;
+  e.innerHTML='<div class="card"><div style="display:grid;place-items:center">'+emblem(n)+'</div><div class="mut" style="font-weight:800;letter-spacing:.1em">LEVEL UP</div><div class="big" id="lvt">Level '+n+'</div><p style="margin:4px 0 0;font-weight:700">'+esc(ttl(n))+'</p><div class="cnt" aria-live="off"><div class="cring" id="cring"><svg viewBox="0 0 46 46" aria-hidden="true"><circle class="rt" cx="23" cy="23" r="20"/><circle class="ra" id="carc" cx="23" cy="23" r="20" stroke-dasharray="'+C.toFixed(2)+'" stroke-dashoffset="0"/></svg><b id="csec">3</b></div><span class="mut" id="clab">Closing in 3 seconds</span></div><button class="btn s" id="lvx">Close now</button></div>';
+  e.classList.add('on');const t0=performance.now(),DUR=3000,smooth=!reduce();
+  const fin=()=>{cancelAnimationFrame(lvRaf);clearInterval(lvTimer);clearTimeout(lvTo);e.classList.remove('on');lvOpen=false;if(lvq.length)setTimeout(showLv,250)};
+  const paint=()=>{const left=Math.max(0,DUR-(performance.now()-t0)),s=Math.ceil(left/1000),shown=smooth?left:s*1000;const a=$('#carc'),cs=$('#csec'),cl=$('#clab');
+    if(a)a.setAttribute('stroke-dashoffset',(C*(1-shown/DUR)).toFixed(2));if(cs)cs.textContent=s;if(cl)cl.textContent='Closing in '+s+(s===1?' second':' seconds')};
+  const frame=()=>{paint();lvRaf=requestAnimationFrame(frame)};
   $('#lvx').onclick=fin;setTimeout(()=>{const b=$('#lvx');b&&b.focus()},30);
-  lvTimer=setInterval(()=>{const left=Math.max(0,DUR-(Date.now()-t0)),s=Math.ceil(left/1000);const r=$('#cring'),cs=$('#csec'),cl=$('#clab');if(r)r.style.setProperty('--p',left/DUR*100);if(cs)cs.textContent=s;if(cl)cl.textContent='Closing in '+s+(s===1?' second':' seconds');if(left<=0)fin()},80);
+  if(smooth)lvRaf=requestAnimationFrame(frame);else lvTimer=setInterval(paint,200);
+  lvTo=setTimeout(fin,DUR); /* always closes after 3 s, even if the tab is in the background or animations are off */
 }
 addEventListener('keydown',e=>{if(e.key==='Escape'&&lvOpen){const b=$('#lvx');b&&b.click()}});
 function chk(){const nw=[];BD.forEach(b=>{if(!S.badges[b[0]]&&b[3]()){S.badges[b[0]]=1;nw.push(b)}});return nw}
@@ -266,7 +312,7 @@ function badgeToast(nw){if(nw.length){sfx.lvl();toast('<span style="font-size:26
 /* ---------- HUD ---------- */
 const TABS=[['home','🏠','Home'],['study','📖','Study'],['quiz','⚡','Quiz'],['test','🎯','Test'],['ranks','🏆','Ranks']];
 if(window.X&&typeof window.X==='object'&&window.CSQ_PROOFS)TABS.splice(TABS.length-1,0,['proofs','✍️','Proofs']);
-let V='home',cur=KEYS[0],multi=['all'],sub='notes',cfg={n:'10',kind:'all',timed:false},R=null,tm=null,fc=null,gq='';
+let V='home',cur=KEYS[0],multi=['all'],sub='notes',cfg={n:'10',kind:'all',tm:'0'},R=null,tm=null,fc=null,gq='';
 function fig(im){const alt=String(im[1]).replace(/<[^>]*>/g,'').replace(/["&<>]/g,' ').trim();return '<figure>'+String(im[0]).replace('<svg','<svg role="img" aria-label="'+esc(alt)+'"')+'<figcaption>'+esc(im[1])+'</figcaption></figure>'}
 const PAL=LK?LK.palettes:[['cyber','Cyber cyan',190],['blue','Ocean blue',218],['violet','Violet',265],['rose','Neon pink',325],['red','Crimson',352],['amber','Amber',36],['green','Emerald',150]];
 if(!PAL.some(x=>x[0]===S.acc))S.acc=PAL[0][0];
@@ -299,7 +345,7 @@ function hud(){
 }
 function tabs(){$('#tabs').classList.toggle('many',TABS.length>5);$('#tabs').innerHTML=TABS.map(t=>'<button class="tab '+((V===t[0]||(V==='run'&&R&&R.mode===t[0])||(V==='res'&&R&&R.mode===t[0]))?'on':'')+'" data-v="'+t[0]+'"><span class="ti">'+t[1]+'</span> <span class="tl">'+t[2]+'</span></button>').join('');$('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{sfx.click();go(b.dataset.v)})}
 function chips(){const el=$('#chips');
-  if(V==='home'||V==='run'||V==='res'||V==='ranks'){el.style.display='none';return}
+  if(V==='home'||V==='run'||V==='res'||V==='ranks'||(V==='study'&&sub!=='notes'&&sub!=='flash'&&sub!=='gloss')){el.style.display='none';return}
   el.style.display='flex';
   const allOk=V!=='study'||sub==='gloss';
   const sel=(V==='study'&&!allOk)?[cur]:(V==='study'?[cur]:multi);
@@ -309,22 +355,30 @@ function chips(){const el=$('#chips');
 function pick(k){if(V==='study'){cur=k;fc=null}else{if(k==='all')multi=['all'];else{multi=multi.filter(x=>x!=='all');multi=multi.includes(k)?multi.filter(x=>x!==k):multi.concat(k);if(!multi.length)multi=['all']}}render()}
 function go(v){V=v;if(v!=='run')clearInterval(tm);if(v==='study'&&cur==='all'&&sub!=='gloss')cur=KEYS[0];render();scrollTo({top:0,behavior:reduce()?'auto':'smooth'})}
 let API=null;const getAPI=()=>API||(API=Object.freeze({main,esc,sfx,addXP:(n,x,y)=>{addXP(n,x,y);badgeToast(chk())},chName,chTitle,KEYS,CH:()=>CH,sel:()=>multi.slice(),save,state:S,rerender:()=>render(),reduce}));
-function render(){tabs();chips();hud();({home,study,quiz:()=>setup('quiz'),test:()=>setup('test'),ranks,run,res,proofs:()=>window.CSQ_PROOFS.render(getAPI())}[V]||home)()}
+function render(){document.body.dataset.view=V;tabs();chips();hud();({home,study,quiz:()=>setup('quiz'),test:()=>setup('test'),ranks,run,res,proofs:()=>window.CSQ_PROOFS.render(getAPI())}[V]||home)()}
 $('#thm').onclick=()=>{const d=isDark();S.theme=d?'light':'dark';theme();save();sfx.click()};
-$('#mus').onclick=()=>{S.mus=S.mus?0:1;save();if(S.mus)musicOn();else musicOff();hud();toast(S.mus?'🎵 Music on':'🔇 Music muted',1400)};
+$('#mus').onclick=()=>{S.mus=S.mus?0:1;save();if(S.mus)musicOn();else musicOff();hud();toast(S.mus?(PR.mute?'🔇 Music on, but all sounds are muted in the menu':'🎵 Music on'):'🔇 Music muted',1800)};
 $('#snd').onclick=()=>{S.snd=S.snd?0:1;save();hud();if(S.snd)sfx.click()};
 $('#me').onclick=()=>gate(!!S.name);$('#pal').onclick=palette;
 
 /* ---------- home ---------- */
+/* Knowledge studied card (home): total, per-chapter breakdown, missed-question review and weak spots */
+function ksCard(){const k=kstat(),p=k.n?Math.round(100*k.d/k.n):0,ms=missed(),wk=weakHome();
+  return '<div class="card sq-ks" id="ksc"><div class="sq-top"><h3>Knowledge studied</h3><span class="sq-pct">'+p+'%</span><span class="mut">'+k.d+' of '+k.n+' topics</span></div><div class="bar" role="progressbar" aria-label="Knowledge studied" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+p+'"><i style="width:'+p+'%"></i></div>'
+  +'<div class="mut" style="font-size:13px">Every note and glossary card you marked known or flipped, plus every question you last answered correctly.</div>'
+  +'<details class="sq-det"'+(innerWidth>=700?' open':'')+'><summary>By '+UNITS().toLowerCase().replace(/s$/,'')+'</summary><div class="sq-chg">'+KEYS.map(c=>{const b=k.by[c]||[0,0],q=b[1]?Math.round(100*b[0]/b[1]):0;return '<div class="sq-chr" data-c="'+esc(c)+'"><div class="l"><span>'+esc(chName(c))+' · '+esc(SECM(c)?SECM(c)[2]:CH[c][0])+'</span><b>'+b[0]+'/'+b[1]+'</b></div><div class="bar"><i style="width:'+q+'%"></i></div></div>'}).join('')+'</div></details>'
+  +((ms.length||wk.length)?'<div class="sq-act">'+(wk.length?'<div class="t" id="wkl"><b>Weak spots</b>: '+wk.map(w=>esc(chName(w.c))+' '+w.p+'%').join(' · ')+'</div><button class="btn s g" id="wkb">Practice weak spots</button>':'')+(ms.length?'<button class="btn s" id="rvm">🔁 Review missed ('+ms.length+')</button>':'')+'</div>':'')+'</div>'}
 function home(){
-  const l=lvl(),inL=S.xp%PER,acc=S.ans?Math.round(100*S.cor/S.ans):0,tot=ALLQ.length;
+  const l=lvl(),inL=S.xp%PER,acc=S.ans?Math.round(100*S.cor/S.ans):0,tot=ALLQ.length,sd=streakDays();
   const top=[...S.hist].sort((a,b)=>b.pct-a.pct||b.n-a.n).slice(0,3);
-  main.innerHTML='<div class="page"><div class="card hero"><div class="logo">'+logo(116,1)+'</div><div class="t"><div class="mut" style="font-weight:800;letter-spacing:.1em;font-size:12px">WELCOME BACK, '+esc(S.name||'')+'</div><h1 style="font-size:28px;margin:2px 0">'+esc(ttl())+' · Level '+l+'</h1><div class="bar" style="margin:8px 0"><i style="width:'+(inL/PER*100)+'%"></i></div><div class="mut" style="font-size:14px">'+inL+' / '+PER+' XP to level '+(l+1)+' · '+S.xp+' XP total</div><div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="q10">⚡ Quick 10</button><button class="btn g" id="t30">🎯 Full test</button></div></div></div>'
+  main.innerHTML='<div class="page"><div class="card hero"><div class="logo">'+logo(116,1)+'</div><div class="t"><div class="mut" style="font-weight:800;letter-spacing:.1em;font-size:12px">WELCOME BACK, '+esc(S.name||'')+'</div><h1 style="font-size:28px;margin:2px 0">'+esc(ttl())+' · Level '+l+'</h1><div class="bar" style="margin:8px 0"><i style="width:'+(inL/PER*100)+'%"></i></div><div class="mut" style="font-size:14px">'+inL+' / '+PER+' XP to level '+(l+1)+' · '+S.xp+' XP total · <span id="dstreak" title="Days in a row you studied (answered a question, marked a card known or flipped a flashcard)">'+(sd?'🔥 '+sd+'-day streak':'🔥 no streak yet')+'</span></div><div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="q10">⚡ Quick 10</button><button class="btn g" id="t30">🎯 Full test</button></div></div></div>'
   +'<div class="stat" style="margin-bottom:14px"><div><b>'+tot+'</b>questions</div><div><b>'+G.length+'</b>glossary terms</div><div><b>'+acc+'%</b>accuracy</div><div><b>'+S.bestTest+'%</b>best test</div></div>'
+  +ksCard()
   +'<h2 style="margin:6px 0 10px">'+UNITS()+'</h2><div class="grid">'+KEYS.map((k,i)=>{const p=prog(k);return '<div class="card hv" style="display:flex;flex-direction:column;animation-delay:'+i*.04+'s"><div style="display:flex;gap:12px;align-items:center"><span class="cico" aria-hidden="true">'+esc(CH[k][1])+'</span><div style="min-width:0"><h3 style="margin:0">'+esc(chTitle(k))+'</h3><div class="mut" style="font-size:14px">'+esc(chSub(k))+'</div></div></div><div style="margin-top:auto"><div class="bar" style="margin:12px 0 8px"><i style="width:'+p+'%"></i></div><div class="mut" style="font-size:13px">'+p+'% mastered · '+POOLN(k)+' questions</div><div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="btn s g" data-s="'+esc(k)+'">Study</button><button class="btn s" data-q="'+esc(k)+'">Quiz</button></div></div></div>'}).join('')+'</div>'
   +'<h2 style="margin:6px 0 10px">Badges</h2><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr))">'+BD.map(b=>'<div class="badge '+(S.badges[b[0]]?'':'off')+'"><span aria-hidden="true">'+b[1]+'</span>'+b[2]+'</div>').join('')+'</div>'
   +(top.length?'<div class="card"><h3>Your best runs</h3>'+top.map(h=>'<div style="display:flex;justify-content:space-between;padding:4px 0"><span>'+(h.mode==='test'?'🎯':'⚡')+' '+esc(h.scope)+'</span><b>'+h.pct+'%</b></div>').join('')+'</div>':'')+'</div>';
   $('#q10').onclick=()=>{multi=['all'];cfg.kind='all';cfg.n='10';start('quiz')};$('#t30').onclick=()=>{multi=['all'];cfg.kind='all';cfg.n='40';go('test')};
+  {const rv=$('#rvm'),wk=$('#wkb');if(rv)rv.onclick=reviewMissed;if(wk)wk.onclick=()=>practiceWeak(weakHome().map(w=>w.c))}
   main.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{cur=b.dataset.s;sub='notes';go('study')});
   main.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{multi=[b.dataset.q];go('quiz')});
 }
@@ -332,60 +386,137 @@ function home(){
 /* ---------- study ---------- */
 const cards=c=>N[c].map((s,i)=>{const j=s.indexOf(' — ');return{k:c+':'+i,t:j>0?s.slice(0,j):'Note',d:j>0?s.slice(j+3):s}});
 const gcards=c=>G.map((g,i)=>({k:'g'+i,c:g[0],t:g[1],x:g[2],d:g[3]})).filter(g=>c==='all'||g.c===c);
+/* ---------- study extras: extra pages (PG), bookmarks list, search, cheat sheet ---------- */
+/* PG (contract C5): optional extra study pages from the content file; shape is validated here (plain text only, limits as in CONTENT-FORMAT.md). Row/group indexes stay the original ones so bookmark keys are stable. */
+let PGC=null;
+function pgs(){if(PGC)return PGC;const a=Array.isArray(window.PG)?window.PG:[],out=[],ids=new Set(),str=(v,m)=>typeof v==='string'?v.slice(0,m):'',isO=v=>v&&typeof v==='object'&&!Array.isArray(v);
+  a.slice(0,12).forEach(p=>{if(!isO(p))return;const id=str(p.id,20);if(!/^[a-z0-9-]{2,20}$/.test(id)||ids.has(id)||(p.kind!=='list'&&p.kind!=='order'))return;ids.add(id);
+    const groups=(Array.isArray(p.groups)?p.groups:[]).slice(0,40).map(g=>{g=isO(g)?g:{};const c=typeof g.c==='string'&&Object.prototype.hasOwnProperty.call(CH,g.c)?g.c:'';
+      return{h:str(g.h,120),c,rows:(Array.isArray(g.rows)?g.rows:[]).slice(0,200).map(r=>{r=isO(r)?r:{};const s=p.kind==='order'&&typeof r.s==='number'&&r.s>=1&&r.s<=100?r.s:0;return{t:str(r.t,80),d:str(r.d,600),n:str(r.n,300),s}})}});
+    out.push({id,icon:str(p.icon,4),label:str(p.label,16)||id,title:str(p.title,80),intro:str(p.intro,400),kind:p.kind,groups})});
+  return PGC=out}
+const pgBy=id=>pgs().find(p=>p.id===id);
+const nt=(c,i)=>{const s=String(N[c][i]),j=s.indexOf(' — ');return{t:j>0?s.slice(0,j):'Note',d:j>0?s.slice(j+3):s}};
+const hasN=(c,i)=>Object.prototype.hasOwnProperty.call(N,c)&&Array.isArray(N[c])&&N[c][i]!=null;
+const ctag=c=>c?'<span class="tag">'+esc(chName(c))+'</span>':'';
+const noteItem=(c,i)=>{const n=nt(c,i);return '<div class="note">'+ctag(c)+'<b>'+esc(n.t)+'</b> — '+esc(n.d)+'<div class="sq-row">'+bmBtn('n:'+c+':'+i,'note: '+n.t)+'<button type="button" class="btn g s" data-go="'+esc(c+':'+i)+'">Go to note</button></div></div>'};
+const glItem=i=>{const g=G[i];return '<div class="gl">'+bmBtn('g:'+i,'glossary term: '+g[1])+'<b>'+esc(g[1])+'</b>'+(g[2]?'<span class="ex">'+esc(g[2])+'</span>':'')+'<span class="tag" style="margin-left:8px">'+esc(chName(g[0]))+'</span><div style="margin-top:4px">'+esc(g[3])+'</div></div>'};
+const qItem=q=>'<div class="note">'+ctag(q.c)+'<span class="tag">'+KIND[q.t]+'</span><b>'+esc(q.q)+'</b><div style="margin-top:6px">Answer: <span style="color:var(--ok);font-weight:700">'+esc(q.o[q.a])+'</span></div>'+(q.e?'<div class="mut" style="margin-top:4px">'+esc(q.e)+'</div>':'')+'<div class="sq-row">'+bmBtn('q:'+q.k,'question: '+q.q)+'</div></div>';
+const pgItem=(p,gi,ri,pre,go)=>{const g=p.groups[gi],r=g.rows[ri];return '<div class="gl">'+bmBtn('pg:'+p.id+':'+gi+':'+ri,p.label+': '+r.t)+'<b>'+esc(pre||'')+esc(r.t)+'</b>'+(g.c?'<span class="tag" style="margin-left:8px">'+esc(chName(g.c))+'</span>':'')+(go?'<span class="tag" style="margin-left:8px">'+esc(p.icon+' '+p.label)+'</span>':'')+(r.d?'<div style="margin-top:4px">'+esc(r.d)+'</div>':'')+(r.n?'<div class="mut" style="margin-top:4px;font-size:14px">'+esc(r.n)+'</div>':'')+(go?'<div class="sq-row"><button type="button" class="btn g s" data-gopg="'+esc(p.id)+'">Open page</button></div>':'')+'</div>'};
+function pgPage(p){const ord=p.kind==='order';let h='<div class="card"><h2>'+esc(p.icon)+' '+esc(p.title||p.label)+'</h2>'+(p.intro?'<div class="mut">'+esc(p.intro)+'</div>':'')+'</div>',k=0;
+  if(ord){const all=[];p.groups.forEach(g=>g.rows.forEach(r=>{if(r.t)all.push(r)}));const mx=Math.max(1,...all.map(r=>r.s)),sun=/\bsun\b/i.test(p.title+' '+(p.groups[0]?p.groups[0].h:''));
+    h+='<div class="card"><div class="mut sq-hint">Scroll sideways to see the whole strip →</div><div class="sq-ord" role="region" tabindex="0" aria-label="'+esc(p.label)+' in order, scrolls sideways"><ol class="sq-os">'+(sun?'<li class="sq-sun"><span class="sq-cw" aria-hidden="true">☀</span><span class="sq-n">Sun</span></li>':'')+all.map((r,i)=>{const px=r.s?Math.round((18+46*Math.sqrt(r.s/mx))*10)/10:30;return '<li><span class="sq-cw"><span class="sq-c" style="width:'+px+'px;height:'+px+'px"><b aria-hidden="true">'+(i+1)+'</b></span></span><span class="sq-n">'+esc(r.t)+'</span></li>'}).join('')+'</ol></div></div>'}
+  p.groups.forEach((g,gi)=>{const rs=g.rows.map((r,ri)=>r.t?ri:-1).filter(x=>x>=0);if(!rs.length&&!g.h)return;h+=(g.h?'<h3 class="sq-gh">'+esc(g.h)+(g.c?' '+ctag(g.c):'')+'</h3>':'')+rs.map(ri=>{k++;return pgItem(p,gi,ri,ord?k+'. ':'',false)}).join('')});
+  return h}
+/* saved tab: every bookmarked note, glossary row, extra-page row and question, grouped by type */
+function savedHTML(){const ks=Object.keys(S.bm),L={n:[],g:[],p:[],q:[]};
+  ks.forEach(k=>{let m;if(m=/^n:([A-Za-z0-9]{1,8}):(\d{1,5})$/.exec(k)){if(hasN(m[1],+m[2]))L.n.push([KEYS.indexOf(m[1]),+m[2],m[1]])}else if(m=/^g:(\d{1,5})$/.exec(k)){if(G[+m[1]])L.g.push(+m[1])}else if(m=/^q:((?:s|ga|gd)\d{1,5})$/.exec(k)){if(QBY[m[1]])L.q.push(QBY[m[1]])}else if(m=/^pg:([a-z0-9-]{2,20}):(\d{1,3}):(\d{1,4})$/.exec(k)){const p=pgBy(m[1]),g=p&&p.groups[+m[2]],r=g&&g.rows[+m[3]];if(r&&r.t)L.p.push([pgs().indexOf(p),+m[2],+m[3],p])}});
+  L.n.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);L.g.sort((a,b)=>a-b);L.p.sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]);L.q.sort((a,b)=>ALLQ.indexOf(a)-ALLQ.indexOf(b));
+  const tot=L.n.length+L.g.length+L.p.length+L.q.length;
+  let h='<div class="card"><h2 id="svh" tabindex="-1">⭐ Saved</h2>'+(tot?'<div class="mut">'+tot+' saved item'+(tot===1?'':'s')+'. Tap the ★ on an item to remove it.</div>'+(L.q.length?'<div style="margin-top:10px"><button class="btn" id="svq">Quiz my saved questions ('+L.q.length+')</button></div>':'<div class="mut" style="margin-top:6px">Save a question from the quiz feedback, the review after a run or the Search tab to quiz yourself on it later.</div>'):'<div class="mut">Nothing saved yet. Tap the ☆ on a note, glossary term, flashcard, quiz answer or extra-page row to keep it here for later.</div>')+'</div>';
+  const sec=(t,n,x)=>n?'<h3 class="sq-gh">'+t+' ('+n+')</h3>'+x:'';
+  h+=sec('Notes',L.n.length,L.n.map(a=>noteItem(a[2],a[1])).join(''))+sec('Glossary',L.g.length,L.g.map(glItem).join(''))+sec('Extra pages',L.p.length,L.p.map(a=>pgItem(a[3],a[1],a[2],'',true)).join(''))+sec('Questions',L.q.length,L.q.map(qItem).join(''));
+  return{h,qs:L.q}}
+/* search: notes (title + text), glossary (term, acronym, definition), hand-written questions (stem, correct answer, explanation) and extra-page rows; every typed word must match */
+let SIDX=null,sq='',sqn={};
+function sidx(){if(SIDX)return SIDX;const a=[];
+  KEYS.forEach(c=>(N[c]||[]).forEach((s,i)=>a.push({ty:'n',c,i,h:String(s).toLowerCase()})));
+  G.forEach((g,i)=>a.push({ty:'g',i,h:(g[1]+' '+g[2]+' '+g[3]).toLowerCase()}));
+  ALLQ.forEach(q=>{if(q.k[0]==='s')a.push({ty:'q',q,h:(q.q+' '+q.o[q.a]+' '+q.e).toLowerCase()})});
+  pgs().forEach(p=>p.groups.forEach((g,gi)=>g.rows.forEach((r,ri)=>{if(r.t)a.push({ty:'p',p,gi,ri,h:(r.t+' '+r.d+' '+r.n).toLowerCase()})})));
+  return SIDX=a}
+const SPAGE=50;
+function searchHTML(){const w=sq.toLowerCase().split(/\s+/).filter(Boolean);if(!w.length)return '<div class="mut" style="margin:6px 4px">Type one or more words. Every word has to match. Notes, glossary terms, questions with their answers and explanations'+(pgs().length?' and the extra pages':'')+' are searched.</div>';
+  const hit=sidx().filter(x=>w.every(t=>x.h.includes(t))),by={};hit.forEach(x=>{const g=x.ty==='p'?'p:'+x.p.id:x.ty;(by[g]=by[g]||[]).push(x)});
+  const defs=[['n','Notes'],['g','Glossary'],['q','Questions']].concat(pgs().map(p=>['p:'+p.id,esc(p.icon+' '+p.label)])),R_={n:x=>noteItem(x.c,x.i),g:x=>glItem(x.i),q:x=>qItem(x.q)};
+  let h='<div class="mut" style="margin:6px 4px" id="scount">'+hit.length+' result'+(hit.length===1?'':'s')+'</div>';
+  defs.forEach(d=>{const l=by[d[0]];if(!l)return;const cap=sqn[d[0]]||SPAGE;h+='<h3 class="sq-gh" tabindex="-1" data-sg="'+esc(d[0])+'">'+d[1]+' ('+l.length+')</h3>'+l.slice(0,cap).map(x=>x.ty==='p'?pgItem(x.p,x.gi,x.ri,'',true):R_[x.ty](x)).join('')+(l.length>cap?'<button type="button" class="btn g s" data-more="'+esc(d[0])+'">Show more ('+(l.length-cap)+' more)</button>':'')});
+  return h||'<div class="mut">No matches.</div>'}
+/* printable cheat sheet: a print-only container with every note and glossary row; body.sq-printing (CSS @media print) hides the rest of the page */
+function sheet(){const old=$('#sq-print');if(old)old.remove();const d=document.createElement('div');d.id='sq-print';d.setAttribute('aria-hidden','true');
+  let h='<h1>'+esc(GUIDE.name)+' cheat sheet</h1>';
+  KEYS.forEach(c=>{h+='<h2>'+esc(chName(c))+' · '+esc(chSub(c))+'</h2>'+(N[c]||[]).map(s=>{s=String(s);const j=s.indexOf(' — ');return '<div class="it">'+(j>0?'<b>'+esc(s.slice(0,j))+'</b> — '+esc(s.slice(j+3)):esc(s))+'</div>'}).join('')});
+  h+='<h2>Glossary</h2>'+G.map(g=>'<div class="it"><b>'+esc(g[1])+'</b>'+(g[2]?' ('+esc(g[2])+')':'')+': '+esc(g[3])+'</div>').join('');
+  d.innerHTML=h;document.body.appendChild(d);document.body.classList.add('sq-printing');
+  const done=()=>{document.body.classList.remove('sq-printing');d.remove();removeEventListener('afterprint',done)};addEventListener('afterprint',done);try{window.print()}catch(e){done()}}
+function bmToggle(b){const k=b.dataset.bm;if(!/^[A-Za-z0-9:-]{1,40}$/.test(k||''))return;
+  if(S.bm[k])delete S.bm[k];else{if(Object.keys(S.bm).length>=1000){toast('Your saved list is full (1000). Remove one first.',2400);return}S.bm[k]=1}save();sfx.click();
+  const on=!!S.bm[k];main.querySelectorAll('[data-bm]').forEach(x=>{if(x.dataset.bm===k){x.classList.toggle('on',on);x.setAttribute('aria-pressed',on);x.textContent=on?'★':'☆';x.title=on?'Saved. Tap to remove':'Save for later'}});
+  if(V==='study'&&sub==='saved'){const all=[...main.querySelectorAll('[data-bm]')],ix=all.indexOf(b);study();const nb=[...main.querySelectorAll('[data-bm]')],t=nb[Math.min(ix,nb.length-1)]||$('#svh');if(t)t.focus()}}
+/* one delegated click handler for the study extras (bookmark, go to note / page, show more, quiz saved, cheat sheet) */
+main.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-bm],[data-go],[data-gopg],[data-more],#svq,#sheet');if(!t)return;
+  if(t.dataset.bm!=null)return bmToggle(t);
+  if(V!=='study')return;
+  if(t.id==='sheet')return sheet();
+  if(t.id==='svq'){const l=savedHTML().qs;if(l.length)start('quiz',l,'Saved questions');return}
+  if(t.dataset.gopg!=null){const p=pgBy(t.dataset.gopg);if(p){sub='pg:'+p.id;fc=null;render();const b=main.querySelector('[data-sb="'+sub+'"]');if(b)b.focus()}return}
+  if(t.dataset.more!=null){const g=t.dataset.more;sqn[g]=(sqn[g]||SPAGE)+SPAGE;const r=$('#sres');if(r){r.innerHTML=searchHTML();const h=r.querySelector('[data-sg="'+g+'"]');if(h)h.focus()}return}
+  if(t.dataset.go!=null){const m=/^([A-Za-z0-9]{1,8}):(\d{1,5})$/.exec(t.dataset.go);if(!m||!hasN(m[1],+m[2]))return;sub='notes';cur=m[1];fc=null;render();const el=main.querySelectorAll('.note')[+m[2]];if(el){el.setAttribute('tabindex','-1');el.classList.add('sq-hl');el.scrollIntoView({block:'center',behavior:reduce()?'auto':'smooth'});try{el.focus({preventScroll:true})}catch(x){}setTimeout(()=>el.classList.remove('sq-hl'),2600)}}});
 function study(){
-  const sb=[['notes','📖 Notes'],['flash','🃏 Flashcards'],['gloss','🔤 Glossary']];
-  let h='<div class="page"><div class="tog" role="tablist" aria-label="Study modes">'+sb.map(s=>'<button role="tab" aria-selected="'+(sub===s[0])+'" class="'+(sub===s[0]?'on':'')+'" data-sb="'+s[0]+'">'+s[1]+'</button>').join('')+'</div>';
+  const sb=[['notes','📖 Notes'],['flash','🃏 Flashcards'],['gloss','🔤 Glossary'],['saved','⭐ Saved'],['search','🔍 Search']].concat(pgs().map(p=>['pg:'+p.id,(p.icon?p.icon+' ':'')+p.label]));
+  if(!sb.some(x=>x[0]===sub))sub='notes';
+  let h='<div class="page"><div class="tog sq-wrap sq-many" role="tablist" aria-label="Study modes">'+sb.map(s=>'<button role="tab" aria-selected="'+(sub===s[0])+'" class="'+(sub===s[0]?'on':'')+'" data-sb="'+s[0]+'">'+s[1]+'</button>').join('')+'</div>';
   if(sub==='notes'){const c=cur,cs=cards(c),kn=cs.filter(x=>S.known[x.k]).length;
-    h+='<div class="card"><h2>'+esc(CH[c][1])+' '+esc(chTitle(c))+': '+esc(chSub(c))+'</h2><div class="mut">'+kn+' of '+cs.length+' notes marked as known</div><div class="bar" style="margin-top:8px"><i style="width:'+(100*kn/cs.length)+'%"></i></div></div>';
+    h+='<div class="card"><h2>'+esc(CH[c][1])+' '+esc(chTitle(c))+': '+esc(chSub(c))+'</h2><div class="mut">'+kn+' of '+cs.length+' notes marked as known</div><div class="bar" style="margin-top:8px"><i style="width:'+(100*kn/cs.length)+'%"></i></div><div style="margin-top:10px"><button type="button" class="btn g s" id="sheet">🖨 Cheat sheet</button></div></div>';
     const im={'6':'tcp','10':'arp','11':'ch'}[c];if(im&&IMG[im])h+='<div class="card">'+fig(IMG[im])+'</div>';
-    h+=cs.map(x=>'<div class="note"><b>'+esc(x.t)+'</b> — '+esc(x.d)+'<div style="margin-top:6px"><button class="btn s '+(S.known[x.k]?'':'g')+'" data-k="'+x.k+'" aria-pressed="'+!!S.known[x.k]+'">'+(S.known[x.k]?'✓ Known':'Mark as known')+'</button></div></div>').join('')}
+    h+=cs.map(x=>'<div class="note"><b>'+esc(x.t)+'</b> — '+esc(x.d)+'<div class="sq-row"><button class="btn s '+(S.known[x.k]?'':'g')+'" data-k="'+x.k+'" aria-pressed="'+!!S.known[x.k]+'">'+(S.known[x.k]?'✓ Known':'Mark as known')+'</button>'+bmBtn('n:'+x.k,'note: '+x.t)+'</div></div>').join('')}
   else if(sub==='flash'){const c=cur,cs=cards(c).map(x=>({k:x.k,t:x.t,x:'',d:x.d})).concat(gcards(c).map(g=>({k:g.k,t:g.t,x:g.x,d:g.d})));
     if(!fc||fc.c!==c)fc={c,o:shuffle(cs.map((_,i)=>i)),i:0,f:0};
     const x=cs[fc.o[fc.i%cs.length]],kn=cs.filter(y=>S.known[y.k]).length;
-    h+='<div class="card"><h2>'+esc(CH[c][1])+' Flashcards</h2><div class="mut">Card '+(fc.i%cs.length+1)+' of '+cs.length+' · '+kn+' known · tap the card to flip</div></div><div class="fc '+(fc.f?'flip':'')+'" id="fcard"><div class="fci"><div class="face" role="button" tabindex="0" aria-label="'+esc(x.t+(x.x?' Acronym?':''))+', flip card"><b>'+esc(x.t)+(x.x?'<br><span class="mut" style="font:500 14px var(--fb)">Acronym?</span>':'')+'</b></div><div class="face back" role="button" tabindex="0" aria-label="'+esc((x.x?x.x+' ':'')+x.d)+', flip card"><div>'+(x.x?'<b>'+esc(x.x)+'</b><br>':'')+'<span>'+esc(x.d)+'</span></div></div></div></div><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn g" id="fno">Still learning</button><button class="btn" id="fyes">Got it +2 XP</button></div>'}
+    const bk=/^g\d+$/.test(x.k)?'g:'+x.k.slice(1):'n:'+x.k;
+    h+='<div class="card sq-fch"><div><h2>'+esc(CH[c][1])+' Flashcards</h2><div class="mut">Card '+(fc.i%cs.length+1)+' of '+cs.length+' · '+kn+' known · tap the card to flip</div></div>'+bmBtn(bk,'flashcard: '+x.t)+'</div><div class="fc '+(fc.f?'flip':'')+'" id="fcard"><div class="fci"><div class="face" role="button" tabindex="0" aria-label="'+esc(x.t+(x.x?' Acronym?':''))+', flip card"><b>'+esc(x.t)+(x.x?'<br><span class="mut" style="font:500 14px var(--fb)">Acronym?</span>':'')+'</b></div><div class="face back" role="button" tabindex="0" aria-label="'+esc((x.x?x.x+' ':'')+x.d)+', flip card"><div>'+(x.x?'<b>'+esc(x.x)+'</b><br>':'')+'<span>'+esc(x.d)+'</span></div></div></div></div><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn g" id="fno">Still learning</button><button class="btn" id="fyes">Got it +2 XP</button></div>'}
+  else if(sub==='saved')h+=savedHTML().h;
+  else if(sub==='search')h+='<div class="card"><h2>🔍 Search the guide</h2><label class="lab" for="ssearch">Search</label><input class="search" id="ssearch" type="search" placeholder="Words from a note, term, question or answer" value="'+esc(sq)+'" autocomplete="off"></div><div id="sres">'+searchHTML()+'</div>';
+  else if(sub.slice(0,3)==='pg:')h+=pgPage(pgBy(sub.slice(3)));
   else{const list=gcards(cur).filter(g=>!gq||(g.t+' '+g.x+' '+g.d).toLowerCase().includes(gq.toLowerCase()));
     h+='<div class="card"><h2>'+(G.some(g=>g[2])?'Glossary and acronyms':'Glossary')+'</h2><div class="mut">Every term '+(G.some(g=>g[2])?'and acronym ':'')+'from your notes, the book chapters and the class documents. '+G.length+' entries.</div><label class="lab" for="gsearch">Search</label><input class="search" id="gsearch" type="search" placeholder="Type a term, acronym or keyword" value="'+esc(gq)+'" autocomplete="off"></div><div class="mut" style="margin:4px 4px 8px">'+list.length+' shown</div>'
-    +list.map(g=>'<div class="gl"><b>'+esc(g.t)+'</b>'+(g.x?'<span class="ex">'+esc(g.x)+'</span>':'')+'<span class="tag" style="margin-left:8px">'+esc(chName(g.c))+'</span><div style="margin-top:4px">'+esc(g.d)+'</div></div>').join('')}
+    +list.map(g=>'<div class="gl">'+bmBtn('g:'+g.k.slice(1),'glossary term: '+g.t)+'<b>'+esc(g.t)+'</b>'+(g.x?'<span class="ex">'+esc(g.x)+'</span>':'')+'<span class="tag" style="margin-left:8px">'+esc(chName(g.c))+'</span><div style="margin-top:4px">'+esc(g.d)+'</div></div>').join('')}
   main.innerHTML=h+'</div>';
-  main.querySelectorAll('[data-sb]').forEach(b=>b.onclick=()=>{sub=b.dataset.sb;fc=null;if(sub==='gloss')cur='all';else if(cur==='all')cur=KEYS[0];render()});
-  main.querySelectorAll('[data-k]').forEach(b=>b.onclick=e=>{const k=b.dataset.k;if(S.known[k])delete S.known[k];else{S.known[k]=1;sfx.ok();addXP(2,e.clientX,e.clientY);badgeToast(chk())}save();render()});
+  main.querySelectorAll('[data-sb]').forEach(b=>b.onclick=()=>{sub=b.dataset.sb;fc=null;if(sub==='gloss')cur='all';else if(cur==='all')cur=KEYS[0];render();const t=main.querySelector('[data-sb="'+sub+'"]');if(t)try{t.focus({preventScroll:true})}catch(x){}});
+  {const ss=$('#ssearch');if(ss)ss.oninput=()=>{sq=ss.value;sqn={};$('#sres').innerHTML=searchHTML()}}
+  main.querySelectorAll('[data-k]').forEach(b=>b.onclick=e=>{const k=b.dataset.k;if(S.known[k])delete S.known[k];else{S.known[k]=1;touchDay();sfx.ok();addXP(2,e.clientX,e.clientY);badgeToast(chk())}save();render()});
   const gs=$('#gsearch');if(gs)gs.oninput=()=>{gq=gs.value;const p=gs.selectionStart;study();const n=$('#gsearch');n.focus();n.setSelectionRange(p,p)};
-  if(sub==='flash'){const fl=()=>{fc.f^=1;$('#fcard').classList.toggle('flip');sfx.click()};main.querySelectorAll('.face').forEach(f=>{f.onclick=fl;f.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fl()}}});
-    const cs=cards(fc.c).map(x=>({k:x.k})).concat(gcards(fc.c).map(g=>({k:g.k}))),nx=ok=>{const y=cs[fc.o[fc.i%cs.length]];if(ok&&!S.known[y.k]){S.known[y.k]=1;sfx.ok();addXP(2,innerWidth/2,innerHeight/2);badgeToast(chk())}fc.i++;fc.f=0;save();render()};$('#fno').onclick=()=>nx(false);$('#fyes').onclick=()=>nx(true)}
+  if(sub==='flash'){const fl=()=>{fc.f^=1;$('#fcard').classList.toggle('flip');sfx.click();if(fc.f){const y=cs[fc.o[fc.i%cs.length]];if(y&&!S.fv[y.k]&&Object.keys(S.fv).length<3000)S.fv[y.k]=1;touchDay();save()}};main.querySelectorAll('.face').forEach(f=>{f.onclick=fl;f.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fl()}}});
+    const cs=cards(fc.c).map(x=>({k:x.k})).concat(gcards(fc.c).map(g=>({k:g.k}))),nx=ok=>{const y=cs[fc.o[fc.i%cs.length]];touchDay();if(ok&&!S.known[y.k]){S.known[y.k]=1;sfx.ok();addXP(2,innerWidth/2,innerHeight/2);badgeToast(chk())}fc.i++;fc.f=0;save();render()};$('#fno').onclick=()=>nx(false);$('#fyes').onclick=()=>nx(true)}
 }
 
 /* ---------- setup ---------- */
 const pool=()=>ALLQ.filter(q=>(multi.includes('all')||multi.includes(q.c))&&(cfg.kind==='all'||q.t===cfg.kind));
+/* test time limit: untimed, 45 s per question, or one total clock (30 / 50 / 75 minutes) */
+const TL=[['0','Untimed'],['q','Timed · 45 s each'],['30','30 min total'],['50','50 min total'],['75','75 min total']];
 function setup(m){
   const KT=['s','d','a'].filter(t=>ALLQ.some(q=>q.t===t));if(cfg.kind!=='all'&&!KT.includes(cfg.kind))cfg.kind='all';
-  const n=pool().length,isT=m==='test';
+  const n=pool().length,isT=m==='test',mc=missed().length;
   main.innerHTML='<div class="page"><div class="card"><h2>'+(isT?'🎯 Test mode':'⚡ Quiz mode')+'</h2><div class="mut">'+(isT?'Graded. No feedback until the end, then a full review with answers and explanations.':'Instant feedback with a full explanation after every answer. Earn XP and streak bonuses.')+'</div>'
   +'<span class="lab">'+UNITS()+' (pick in the bar above)</span><div style="margin:4px 0 8px">'+(multi.includes('all')?'<span class="tag">All '+UNITS().toLowerCase()+'</span>':multi.map(k=>'<span class="tag">'+esc(chName(k))+' · '+esc(SECM(k)?SECM(k)[2]:CH[k][0])+'</span>').join(''))+'</div>'
   +(KT.length>1?'<span class="lab">Question type</span><div class="tog" id="tk">'+[['all','All']].concat([['s',(KN.s&&KN.s[1])||'Scenarios'],['d',(KN.d&&KN.d[1])||'Definitions'],['a',(KN.a&&KN.a[1])||'Acronyms']].filter(x=>KT.includes(x[0]))).map(x=>'<button class="'+(cfg.kind===x[0]?'on':'')+'" data-v="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>':'')
   +'<span class="lab">How many</span><div class="tog" id="tn">'+['10','20','40','all'].map(x=>'<button class="'+(cfg.n===x?'on':'')+'" data-v="'+x+'">'+(x==='all'?'All ('+n+')':x)+'</button>').join('')+'</div>'
-  +(isT?'<span class="lab">Timer</span><div class="tog" id="tt"><button class="'+(!cfg.timed?'on':'')+'" data-v="0">Untimed</button><button class="'+(cfg.timed?'on':'')+'" data-v="1">Timed · 45 s each</button></div>':'')
-  +'<div style="margin-top:14px"><button class="btn" id="go" '+(n?'':'disabled')+'>Start '+(isT?'test':'quiz')+' ('+Math.min(n,cfg.n==='all'?n:+cfg.n)+' questions)</button></div>'+(n?'':'<div class="err">No questions match. Change the filters.</div>')+'</div></div>';
+  +(isT?'<span class="lab">Timer</span><div class="tog sq-wrap" id="tt" role="group" aria-label="Time limit">'+TL.map(x=>'<button class="'+(cfg.tm===x[0]?'on':'')+'" data-v="'+x[0]+'" aria-pressed="'+(cfg.tm===x[0])+'">'+x[1]+'</button>').join('')+'</div>'+(/^\d+$/.test(cfg.tm)?'<div class="mut" style="font-size:13px">One clock for the whole test: '+cfg.tm+' minutes. When it reaches 0:00 the test ends by itself and unanswered questions count as wrong.</div>':''):'')
+  +'<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="go" '+(n?'':'disabled')+'>Start '+(isT?'test':'quiz')+' ('+Math.min(n,cfg.n==='all'?n:+cfg.n)+' questions)</button>'+(!isT&&mc?'<button class="btn g" id="rvm">🔁 Review missed ('+mc+')</button>':'')+'</div>'+(n?'':'<div class="err">No questions match. Change the filters.</div>')+'</div></div>';
   if($('#tk'))$('#tk').querySelectorAll('button').forEach(b=>b.onclick=()=>{cfg.kind=b.dataset.v;setup(m)});
   $('#tn').querySelectorAll('button').forEach(b=>b.onclick=()=>{cfg.n=b.dataset.v;setup(m)});
-  if(isT)$('#tt').querySelectorAll('button').forEach(b=>b.onclick=()=>{cfg.timed=b.dataset.v==='1';setup(m)});
+  if(isT)$('#tt').querySelectorAll('button').forEach(b=>b.onclick=()=>{cfg.tm=b.dataset.v;setup(m)});
+  {const rv=$('#rvm');if(rv)rv.onclick=reviewMissed}
   $('#go').onclick=()=>start(m);
 }
-function start(m,custom){
+function start(m,custom,label){
   let p=custom||pool();p=shuffle(p);if(!custom&&cfg.n!=='all')p=p.slice(0,+cfg.n);
   if(!p.length)return;
   const qs=p.map(q=>{const ord=shuffle(q.o.map((t,i)=>i));return{q,ord,ci:ord.indexOf(q.a)}});
-  R={mode:m,qs,i:0,right:0,ans:[],pick:[],streak:0,mx:0,lock:0,timed:m==='test'&&cfg.timed,tleft:qs.length*45,scope:multi.includes('all')?'All '+UNITS().toLowerCase():multi.map(chName).join(', '),sel:null,xp:0};
+  R={mode:m,qs,i:0,right:0,ans:[],pick:[],streak:0,mx:0,lock:0,timed:m==='test'&&cfg.tm!=='0',tleft:cfg.tm==='q'?qs.length*45:/^\d+$/.test(cfg.tm)?+cfg.tm*60:0,scope:label||(multi.includes('all')?'All '+UNITS().toLowerCase():multi.map(chName).join(', ')),sel:null,xp:0};
   V='run';clearInterval(tm);
-  if(R.timed)tm=setInterval(()=>{R.tleft--;const t=$('#tleft');if(t){t.textContent=fmt(R.tleft)}if(R.tleft<=0){clearInterval(tm);finish()}},1000);
+  if(R.timed){R.end=Date.now()+R.tleft*1000;tm=setInterval(tick,500)}
   render();scrollTo(0,0);
 }
+/* test clock: counts down to a fixed deadline (so a slow or background tab cannot drift); at 0 the test finishes by itself */
+function tick(){if(!R||!R.timed||V!=='run')return;R.tleft=Math.max(0,Math.ceil((R.end-Date.now())/1000));const t=$('#tleft');if(t){t.textContent=fmt(R.tleft);t.classList.toggle('sq-low',R.tleft<=60)}if(R.tleft<=0){clearInterval(tm);if(R.sel!=null)commitTest();finish()}}
 const fmt=s=>Math.floor(s/60)+':'+String(Math.max(0,s%60)).padStart(2,'0');
 
 /* ---------- run ---------- */
 function run(){
   if(!R)return go('home');if(R.i>=R.qs.length)return finish();
   const x=R.qs[R.i],q=x.q,isT=R.mode==='test',img=q.i&&IMG[q.i];
-  main.innerHTML='<div class="page"><div class="card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><span><span class="tag">'+esc(chName(q.c))+'</span><span class="tag">'+KIND[q.t]+'</span>'+(q.src==='doc'?'<span class="tag">Class doc</span>':'')+'</span><span class="mut" style="font-weight:700">'+(R.i+1)+' / '+R.qs.length+(R.timed?' · <span id="tleft">'+fmt(R.tleft)+'</span>':'')+'</span></div><div class="bar" style="margin:8px 0 14px"><i style="width:'+(R.i/R.qs.length*100)+'%"></i></div>'
+  main.innerHTML='<div class="page"><div class="card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><span><span class="tag">'+esc(chName(q.c))+'</span><span class="tag">'+KIND[q.t]+'</span>'+(q.src==='doc'?'<span class="tag">Class doc</span>':'')+'</span><span class="mut" style="font-weight:700">'+(R.i+1)+' / '+R.qs.length+(R.timed?' · <span id="tleft" role="timer" aria-label="Time left" class="'+(R.tleft<=60?'sq-low':'')+'">'+fmt(R.tleft)+'</span>':'')+'</span></div><div class="bar" style="margin:8px 0 14px"><i style="width:'+(R.i/R.qs.length*100)+'%"></i></div>'
   +(R.streak>=3&&!isT?'<div style="font-weight:800;color:var(--warn)">🔥 '+R.streak+' in a row</div>':'')
   +'<h3 style="font-size:19px;line-height:1.4;margin-bottom:10px">'+esc(q.q)+'</h3>'+(img?fig(img):'')
   +x.ord.map((oi,k)=>'<button class="opt" data-k="'+k+'" style="animation-delay:'+k*.05+'s"><i>'+'ABCDEF'[k]+'</i><span>'+esc(q.o[oi])+'</span></button>').join('')
@@ -394,25 +525,30 @@ function run(){
   bs.forEach(b=>b.onclick=e=>ans(+b.dataset.k,b,e));
   if(isT&&R.sel!=null)mark();
 }
-function mark(){const bs=[...main.querySelectorAll('.opt')];bs.forEach((b,k)=>b.classList.toggle('sel',k===R.sel));$('#nxt').innerHTML='<button class="btn" id="nb">'+(R.i+1>=R.qs.length?'Finish test':'Next question')+'</button>';$('#nb').onclick=()=>{R.ans.push(R.sel===R.qs[R.i].ci);R.pick.push(R.sel);if(R.sel===R.qs[R.i].ci){R.right++;S.cd[R.qs[R.i].q.k]=R.qs[R.i].q.c}S.ans++;if(R.sel===R.qs[R.i].ci)S.cor++;R.sel=null;R.i++;save();run()}}
+function mark(){const bs=[...main.querySelectorAll('.opt')];bs.forEach((b,k)=>b.classList.toggle('sel',k===R.sel));$('#nxt').innerHTML='<button class="btn" id="nb">'+(R.i+1>=R.qs.length?'Finish test':'Next question')+'</button>';$('#nb').onclick=()=>{commitTest();run()}}
+function commitTest(){const x=R.qs[R.i],ok=R.sel===x.ci;R.ans.push(ok);R.pick.push(R.sel);if(ok){R.right++;S.cd[x.q.k]=x.q.c}S.ans++;if(ok)S.cor++;R.sel=null;R.i++;touchDay();save()}
+/* per-question feedback area (quiz mode); qExtras() is the hook for the Report button (and, later, other per-question actions) */
+function fbHTML(q,ok,x){return '<div class="fb '+(ok?'good':'badc')+'" role="status"><b>'+(ok?['Correct!','Nailed it!','Boom!','Exactly right!'][Math.random()*4|0]:'Not quite. The answer is '+'ABCDEF'[x.ci]+': '+esc(q.o[q.a]))+'</b><div style="margin-top:6px">'+esc(q.e||('Correct answer: '+q.o[q.a]))+'</div>'+qExtras(q)+'</div>'}
 function ans(k,el,e){
   if(R.lock)return;const x=R.qs[R.i],q=x.q;
   if(R.mode==='test'){R.sel=k;sfx.click();mark();return}
-  R.lock=1;const ok=k===x.ci;R.ans.push(ok);R.pick.push(k);S.ans++;
+  R.lock=1;const ok=k===x.ci;R.ans.push(ok);R.pick.push(k);S.ans++;recQ(q,ok);
   const bs=[...main.querySelectorAll('.opt')];bs.forEach(b=>b.disabled=true);
   const r=el.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top;
   if(ok){R.right++;S.cor++;S.cd[q.k]=q.c;R.streak++;R.mx=Math.max(R.mx,R.streak);S.best=Math.max(S.best,R.streak);el.classList.add('ok');sfx.ok();flash('g');burst(cx,cy);vib(30);const gain=10+Math.min(R.streak-1,5)*2;R.xp+=gain;addXP(gain,cx,cy)}
   else{R.streak=0;el.classList.add('no');bs[x.ci].classList.add('ok');sfx.bad();flash('r');vib([60,40,60])}
   const nw=chk();hud();save();
-  $('#fb').innerHTML='<div class="fb '+(ok?'good':'badc')+'" role="status"><b>'+(ok?['Correct!','Nailed it!','Boom!','Exactly right!'][Math.random()*4|0]:'Not quite. The answer is '+'ABCDEF'[x.ci]+': '+esc(q.o[q.a]))+'</b><div style="margin-top:6px">'+esc(q.e||('Correct answer: '+q.o[q.a]))+'</div></div>';
+  $('#fb').innerHTML=fbHTML(q,ok,x);
   $('#nxt').innerHTML='<button class="btn" id="nb">'+(R.i+1>=R.qs.length?'See results':'Next question')+'</button>';$('#nb').onclick=()=>{R.lock=0;R.i++;run()};$('#nb').focus();
   badgeToast(nw);
 }
 
 /* ---------- finish + results ---------- */
 function finish(){
-  clearInterval(tm);if(!R)return go('home');
+  clearInterval(tm);if(!R)return go('home');if(R.fin)return;R.fin=1;
   while(R.ans.length<R.qs.length){R.ans.push(false);R.pick.push(null)}
+  if(R.mode==='test')R.qs.forEach((x,i)=>{if(R.pick[i]!=null)recQ(x.q,R.ans[i]===true)}); /* test answers are recorded at the end; quiz answers were recorded as they were given */
+  try{const rows=R.qs.map((x,i)=>R.pick[i]!=null?{k:x.q.k,ok:R.ans[i]===true}:null).filter(Boolean);if(rows.length&&window.CSQ&&typeof window.CSQ.recordAnswers==='function')window.CSQ.recordAnswers(GUIDE.id,rows)}catch(e){}
   const n=R.qs.length,pct=Math.round(R.right/n*100);R.pct=pct;
   let bonus=Math.round(pct/2)+(pct>=80?25:0)+(R.mode==='test'?R.right*4:0);R.bonus=bonus;
   const prevBest=R.mode==='test'?S.bestTest:S.bestQuiz;R.newBest=pct>prevBest&&n>=5;
@@ -427,11 +563,13 @@ function res(){
   const m=R;if(!m)return go('home');
   const miss=m.qs.map((x,i)=>({x,i})).filter(o=>m.ans[o.i]!==true);
   const by={};m.qs.forEach((x,i)=>{const c=x.q.c;by[c]=by[c]||[0,0];by[c][1]++;if(m.ans[i])by[c][0]++});
+  const weak=Object.keys(by).filter(c=>by[c][0]/by[c][1]<WEAK).sort((a,b)=>by[a][0]/by[a][1]-by[b][0]/by[b][1]);
   main.innerHTML='<div class="page"><div class="card" style="text-align:center"><div class="mut" style="font-weight:800;letter-spacing:.1em">'+(m.mode==='test'?'TEST COMPLETE':'QUIZ COMPLETE')+'</div><div class="big" id="cnt">0%</div><div>'+m.right+' of '+m.qs.length+' correct'+(m.mx>1?' · best streak '+m.mx:'')+'</div><div class="mut">+'+m.bonus+' bonus XP'+(m.newBest?' · 🏅 new personal best!':'')+'</div><div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn" id="again">Go again</button>'+(miss.length?'<button class="btn g" id="retry">Retry missed ('+miss.length+')</button>':'')+'<button class="btn g" id="rk">🏆 Leaderboard</button></div></div>'
+  +(weak.length?'<div class="card sq-weak" id="wkc"><h3>Weak spots</h3><div class="mut">Under '+Math.round(WEAK*100)+'% in this run:</div><ul>'+weak.map(c=>'<li><b>'+esc(CH[c][1])+' '+esc(chName(c))+'</b> · '+esc(chSub(c))+' · '+by[c][0]+'/'+by[c][1]+' ('+Math.round(100*by[c][0]/by[c][1])+'%)</li>').join('')+'</ul><button class="btn s" id="wkp">Practice weak spots</button></div>':'')
   +'<div class="card"><h3>By chapter</h3>'+Object.keys(by).map(c=>'<div style="margin:8px 0"><div style="display:flex;justify-content:space-between"><span>'+esc(CH[c][1])+' '+esc(CH[c][0])+'</span><b>'+by[c][0]+'/'+by[c][1]+'</b></div><div class="bar"><i style="width:'+by[c][0]/by[c][1]*100+'%"></i></div></div>').join('')+'</div>'
-  +'<div class="card"><h3>Review '+(miss.length?'missed questions':'')+'</h3>'+(miss.length?miss.map(o=>{const q=o.x.q,pk=m.pick[o.i];return '<div class="note"><b>'+esc(q.q)+'</b><div style="margin-top:6px">Your answer: <span style="color:var(--bad);font-weight:700">'+(pk==null?'(no answer)':esc(q.o[o.x.ord[pk]]))+'</span></div><div>Correct: <span style="color:var(--ok);font-weight:700">'+esc(q.o[q.a])+'</span></div><div class="mut" style="margin-top:4px">'+esc(q.e)+'</div></div>'}).join(''):'<div>Perfect. Nothing to review.</div>')+'</div></div>';
+  +'<div class="card"><h3>Review '+(miss.length?'missed questions':'')+'</h3>'+(miss.length?miss.map(o=>{const q=o.x.q,pk=m.pick[o.i];return '<div class="note"><b>'+esc(q.q)+'</b><div style="margin-top:6px">Your answer: <span style="color:var(--bad);font-weight:700">'+(pk==null?'(no answer)':esc(q.o[o.x.ord[pk]]))+'</span></div><div>Correct: <span style="color:var(--ok);font-weight:700">'+esc(q.o[q.a])+'</span></div><div class="mut" style="margin-top:4px">'+esc(q.e)+'</div>'+qExtras(q)+'</div>'}).join(''):'<div>Perfect. Nothing to review.</div>')+'</div></div>';
   let v=0;const e=$('#cnt'),t=setInterval(()=>{v+=Math.max(1,Math.round(m.pct/25));if(v>=m.pct){v=m.pct;clearInterval(t)}e.textContent=v+'%'},35);
-  $('#again').onclick=()=>go(m.mode);const rt=$('#retry');if(rt)rt.onclick=()=>{start('quiz',miss.map(o=>o.x.q))};$('#rk').onclick=()=>go('ranks');
+  $('#again').onclick=()=>go(m.mode);const rt=$('#retry');if(rt)rt.onclick=()=>{start('quiz',miss.map(o=>o.x.q))};$('#rk').onclick=()=>go('ranks');{const wp=$('#wkp');if(wp)wp.onclick=()=>practiceWeak(weak)}
 }
 
 /* ---------- ranks ---------- */
@@ -453,14 +591,18 @@ document.addEventListener('keydown',e=>{
   if(e.ctrlKey||e.metaKey||e.altKey||e.repeat)return;
   if(V!=='run'||!R)return;
   if(document.querySelector('.ov.on')||$('#palpop'))return;
-  const t=e.target;if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable))return;
+  const t=e.target;if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable||(t.closest&&t.closest('[role="dialog"],[data-rq],[data-bm]'))))return;
   const k=e.key.toLowerCase();let i=-1;
   if(/^[1-6]$/.test(k))i=+k-1;else if(/^[a-f]$/.test(k))i=k.charCodeAt(0)-97;
   if(i>=0){const bs=[...main.querySelectorAll('.opt')];const b=bs[i];if(b&&!b.disabled){e.preventDefault();b.click()}return}
   if(k==='enter'||k===' '||k==='arrowright'){const nb=$('#nb');if(!nb)return;if(t===nb&&k!=='arrowright')return;e.preventDefault();nb.click()}
 });
 
+/* ---------- report a problem: delegated click on any [data-rq] button inside the page (contract C6) ---------- */
+main.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-rq]');if(!b)return;const q=QBY[b.dataset.rq];if(q&&hasSug()){try{window.SQ_SUGGEST.open({kind:'problem',guide:GUIDE.id,qid:q.k,qtext:String(q.q).slice(0,500)})}catch(err){}}});
+
 /* ---------- boot ---------- */
 theme();hud();render();
+{const k=ksCalc();if(!S.ks||S.ks.d!==k.d||S.ks.n!==k.n||!S.ks.t)save()} /* keep the hub's Knowledge studied number fresh even if no answer is given */
 takeXfer();addEventListener('hashchange',()=>{takeXfer();pushScore();render()});hud();if(!S.name&&!S.skip)gate(false);else{document.addEventListener('pointerdown',function f(){document.removeEventListener('pointerdown',f);if(S.mus)musicOn()},{once:true})}
 })();

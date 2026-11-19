@@ -1,0 +1,78 @@
+/* Shared extras for the hub and every guide: suggestion box, settings controls, dialogs and the update dot.
+   Only the page's own CSS variables are used (--card, --tx, --mut, --bd, --ac, --bt, --bg2, --bad, --ok, --fb, --fd), so the
+   same rules match the warm hub and every guide look (cyan, origins, cosmos, chalk) in light and dark. */
+#sq-suggest{position:fixed;right:max(14px,env(safe-area-inset-right,0px));bottom:var(--sq-sg-b,calc(14px + env(safe-area-inset-bottom,0px)));z-index:60;width:52px;height:52px;margin:0;padding:0;border-radius:50%;border:2px solid var(--card);background:var(--ac);color:var(--bt);font-size:22px;line-height:1;display:grid;place-items:center;cursor:pointer;box-shadow:0 6px 20px var(--glow,var(--shadow,rgba(0,0,0,.3)));transition:transform .2s}
+#sq-suggest:hover{transform:translateY(-2px)}
+#sq-suggest:active{transform:scale(.94)}
+#sq-suggest[hidden]{display:none}
+#sq-suggest:focus-visible{outline:3px solid var(--ac);outline-offset:3px}
+body[data-view="study"] #sq-suggest,body[data-view="quiz"] #sq-suggest,body[data-view="test"] #sq-suggest,body[data-view="run"] #sq-suggest,body[data-view="res"] #sq-suggest,body[data-view="proofs"] #sq-suggest{display:none}
+html.sq-lock{overflow:hidden}
+.sq-ov{position:fixed;inset:0;z-index:88;display:grid;place-items:center;overflow:auto;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));background:rgba(8,8,12,.62);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.sq-dlg{box-sizing:border-box;width:100%;max-width:460px;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto;overscroll-behavior:contain;background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:22px;padding:18px 20px 18px;box-shadow:0 24px 60px rgba(0,0,0,.45);font:15px/1.5 var(--fb,system-ui,sans-serif);text-align:left;animation:sqpop .3s cubic-bezier(.22,1,.36,1) both}
+.sq-dlg *{box-sizing:border-box}
+.sq-dh{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.sq-dh h2{flex:1;margin:0;font:700 20px/1.25 var(--fd,var(--fb,system-ui,sans-serif));letter-spacing:-.01em;color:var(--tx)}
+.sq-x{flex:none;width:40px;height:40px;border-radius:50%;border:1px solid var(--bd);background:var(--bg2);color:var(--tx);font-size:15px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0}
+.sq-dlg :focus-visible{outline:3px solid var(--ac);outline-offset:2px}
+.sq-mut{color:var(--mut);margin:0 0 12px;font-size:14px}
+.sq-seg{display:flex;gap:4px;background:var(--bg2);border:1px solid var(--bd);border-radius:999px;padding:3px;margin:0 0 12px}
+.sq-seg label{position:relative;flex:1;min-width:0;display:block}
+.sq-seg input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.sq-seg span{display:block;text-align:center;padding:9px 6px;border-radius:999px;font-weight:700;font-size:14px;color:var(--mut);overflow-wrap:anywhere}
+.sq-seg input:checked+span{background:var(--ac);color:var(--bt)}
+.sq-seg input:focus-visible+span{outline:3px solid var(--ac);outline-offset:2px}
+.sq-lab{display:block;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:10px 0 4px}
+.sq-q{margin:0 0 10px;padding:8px 12px;border-left:4px solid var(--ac);background:var(--bg2);border-radius:0 10px 10px 0;font-size:14px;max-height:7.5em;overflow:auto;overflow-wrap:anywhere;color:var(--tx)}
+.sq-ta{display:block;width:100%;min-height:120px;resize:vertical;padding:10px 12px;border-radius:14px;border:2px solid var(--bd);background:var(--bg2);color:var(--tx);font:16px/1.45 var(--fb,system-ui,sans-serif)}
+.sq-ta:focus{border-color:var(--ac);outline:none;box-shadow:0 0 0 3px var(--bd)}
+.sq-count{text-align:right;font-size:12px;color:var(--mut);margin:3px 2px 0}
+.sq-msg{min-height:0;margin:8px 2px 0;font-size:14px;font-weight:600;color:var(--tx)}
+.sq-msg:empty{display:none}
+.sq-msg.bad{color:var(--bad);font-weight:700}
+.sq-msg.ok{color:var(--ok);font-weight:700}
+.sq-act{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;margin-top:14px}
+.sq-b{min-height:44px;padding:8px 20px;border-radius:999px;border:2px solid var(--bd);background:var(--bg2);color:var(--tx);font:700 15px/1.2 var(--fb,system-ui,sans-serif);cursor:pointer}
+.sq-b.pri{background:var(--ac);border-color:var(--ac);color:var(--bt)}
+.sq-b[disabled]{opacity:.55;cursor:default}
+/* settings rows: used in the guide side menu and in the hub settings dialog */
+.sq-set{display:flex;flex-direction:column;gap:2px}
+.sq-r{display:flex;align-items:center;gap:12px;width:100%;min-height:46px;margin:0;padding:6px 10px;border:0;border-radius:12px;background:none;color:var(--tx);font:650 15px/1.25 var(--fb,system-ui,sans-serif);text-align:left;cursor:pointer;text-decoration:none}
+button.sq-r:hover,button.sq-r:focus-visible{background:var(--bg2)}
+div.sq-r{cursor:default}
+.sq-ri{flex:none;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:18px;background:var(--bg2);border:1px solid var(--bd)}
+.sq-rt{display:flex;flex-direction:column;min-width:0;flex:1;line-height:1.25}
+.sq-rt small{color:var(--mut);font-weight:500;font-size:12.5px}
+.sq-tog{flex:none;position:relative;width:42px;height:24px;border-radius:99px;background:var(--bd);transition:background .2s}
+.sq-tog::after{content:"";position:absolute;left:3px;top:3px;width:18px;height:18px;border-radius:50%;background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .2s}
+[aria-checked="true"]>.sq-tog{background:var(--ac)}
+[aria-checked="true"]>.sq-tog::after{transform:translateX(18px)}
+.sq-ms{display:flex;gap:4px;margin-top:5px}
+.sq-ms button{min-width:52px;min-height:34px;padding:2px 10px;border-radius:999px;border:1px solid var(--bd);background:var(--bg2);color:var(--tx);font:700 13px/1 var(--fb,system-ui,sans-serif);cursor:pointer}
+.sq-ms button[aria-pressed="true"]{background:var(--ac);border-color:var(--ac);color:var(--bt)}
+.sq-set .sq-msg{margin:6px 10px 2px}
+.sq-conf{margin:6px 10px 2px;padding:10px 12px;border:1px solid var(--bd);border-radius:12px;background:var(--bg2);font-size:14px;font-weight:600}
+.sq-conf .sq-act{justify-content:flex-start;margin-top:8px}
+.sq-conf .sq-b{min-height:40px;padding:6px 16px}
+/* update dot and the copyright line in the side menu */
+.sq-dot{display:inline-block;flex:none;width:9px;height:9px;border-radius:50%;background:var(--bad)}
+.sq-dot[hidden]{display:none}
+.sq-dot.guide{width:auto;height:auto;min-width:34px;padding:1px 6px;border-radius:99px;font:800 10px/1.5 var(--fb,system-ui,sans-serif);letter-spacing:.04em;color:var(--bt)}
+#navbtn{position:relative}
+#navbtn .sq-dot{position:absolute;top:5px;right:5px;box-shadow:0 0 0 2px var(--card)}
+#navbtn .sq-dot.guide{display:none}
+.navcp{margin:auto 0 0;padding:14px 8px 0;font-size:12px;color:var(--mut);text-align:center}
+@keyframes sqpop{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){html:not(.sq-anim-on) .sq-dlg{animation:none}html:not(.sq-anim-on) #sq-suggest,html:not(.sq-anim-on) .sq-tog,html:not(.sq-anim-on) .sq-tog::after{transition:none}}
+html.sq-anim-off .sq-dlg{animation:none}html.sq-anim-off #sq-suggest,html.sq-anim-off .sq-tog,html.sq-anim-off .sq-tog::after{transition:none}
+@media(max-width:360px){.sq-dlg{padding:14px 14px}.sq-b{padding:8px 14px}}
+#acct.navd a .sq-dot{margin-left:auto}
+#acct.navd .sq-set{margin:0}
+/* the old footer rule "#acct button" (app.css) is more specific than the classes above: restate the look inside the side menu */
+#acct.navd .sq-r{display:flex;min-height:46px;padding:6px 10px;color:var(--tx);font-size:15px;font-weight:650;text-decoration:none}
+#acct.navd .sq-ms button{display:inline-flex;align-items:center;justify-content:center;min-width:52px;min-height:34px;padding:2px 10px;font-size:13px;font-weight:700;color:var(--tx);text-decoration:none}
+#acct.navd .sq-ms button[aria-pressed="true"]{color:var(--bt)}
+#acct.navd .sq-b{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:6px 16px;font-size:15px;font-weight:700;color:var(--tx);text-decoration:none}
+#acct.navd .sq-b.pri{color:var(--bt)}
+#acct.navd .sq-conf,#acct.navd .sq-msg{font-size:14px;color:var(--tx)}
+#acct.navd .sq-msg.bad{color:var(--bad)}#acct.navd .sq-msg.ok{color:var(--ok)}

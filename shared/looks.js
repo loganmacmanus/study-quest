@@ -8,6 +8,9 @@
   const TAU = Math.PI * 2, rnd = Math.random;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const mq = (q) => { try { return matchMedia(q); } catch (e) { return { matches: false }; } };
+  /* global Animations preference (sq_prefs.anim): "off" never animates, "on" animates even if the system asks for reduced motion, "auto" follows the system */
+  const animPref = () => { try { const o = JSON.parse(localStorage.getItem("sq_prefs")); return o && (o.anim === "on" || o.anim === "off") ? o.anim : "auto"; } catch (e) { return "auto"; } };
+  const still = () => { const a = animPref(); return a === "off" || (a === "auto" && mq("(prefers-reduced-motion: reduce)").matches); };
   const G = () => window.GUIDE || {};
   const isDark = () => {
     const t = document.documentElement.dataset.theme;
@@ -49,13 +52,15 @@
     }
     function start() {
       cancelAnimationFrame(st.raf);
-      if (mq("(prefers-reduced-motion: reduce)").matches) { cv.dataset.anim = "static"; frame(cx, st, 4000, true); }
+      if (still()) { cv.dataset.anim = "static"; frame(cx, st, 4000, true); }
       else { cv.dataset.anim = "running"; st.raf = requestAnimationFrame(tick); }
     }
     cv.dataset.look = name;
     size(); start();
     addEventListener("resize", () => { size(); if (cv.dataset.anim === "static") frame(cx, st, 4000, true); });
     const m = mq("(prefers-reduced-motion: reduce)"); if (m.addEventListener) m.addEventListener("change", start);
+    addEventListener("sq-prefs", start);
+    addEventListener("storage", (e) => { if (e.key === "sq_prefs" || e.key === null) start(); });
     document.addEventListener("visibilitychange", () => { if (document.hidden) cancelAnimationFrame(st.raf); else start(); });
     try { new MutationObserver(() => { if (cv.dataset.anim === "static") frame(cx, st, 4000, true); }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "style"] }); } catch (e) { /* older browsers: the still frame refreshes on the next resize */ }
   }
