@@ -24,11 +24,18 @@
   const keep = (s) => { sess = s; try { s ? localStorage.setItem(SK, JSON.stringify(s)) : localStorage.removeItem(SK); } catch (e) {} };
   const fromAuth = (d) => ({ access_token: d.access_token, refresh_token: d.refresh_token, expires_at: d.expires_at || Math.floor(Date.now() / 1000) + (d.expires_in || 3600), user: { id: d.user.id, email: String(d.user.email || "").toLowerCase() } });
 
+  /* request timings for the admin debug panel: path without the query string, method, ms, status (0 = network error); last 40 only, kept in memory */
+  const NET = [];
+  function netLog(p, m, ms, st) { NET.push({ p, m: m || "GET", ms: Math.round(ms), st, t: Date.now() }); if (NET.length > 40) NET.shift(); }
   async function call(path, opts) {
     opts = opts || {};
     const h = Object.assign({ apikey: KEY, "Content-Type": "application/json" }, opts.headers || {});
     if (opts.auth !== false) { await fresh(); if (sess) h.Authorization = "Bearer " + sess.access_token; }
-    const r = await fetch(BASE + path, { method: opts.method || "GET", headers: h, body: opts.body ? JSON.stringify(opts.body) : undefined, cache: "no-store", keepalive: !!opts.keepalive });
+    const t0 = performance.now(), np = String(path).split("?")[0];
+    let r;
+    try { r = await fetch(BASE + path, { method: opts.method || "GET", headers: h, body: opts.body ? JSON.stringify(opts.body) : undefined, cache: "no-store", keepalive: !!opts.keepalive }); }
+    catch (e) { netLog(np, opts.method, performance.now() - t0, 0); throw e; }
+    netLog(np, opts.method, performance.now() - t0, r.status);
     let data = null; const txt = await r.text(); try { data = txt ? JSON.parse(txt) : null; } catch (e) { data = txt; }
     if (!r.ok) { const err = new Error((data && (data.msg || data.message || data.error_description || data.error)) || ("HTTP " + r.status)); err.status = r.status; err.data = data; err.code = data && data.code; throw err; }
     return data;
@@ -261,5 +268,5 @@
     }
   };
 
-  window.CSQ = { root: ROOT, cfg: CFG, start, signOut, isOwner, call, get session() { return sess; }, set onReady(f) { onReady = f; }, boardAdapter, esc, suggest, recordAnswers, progress };
+  window.CSQ = { root: ROOT, cfg: CFG, start, signOut, isOwner, call, get session() { return sess; }, set onReady(f) { onReady = f; }, boardAdapter, esc, suggest, recordAnswers, progress, net: () => NET.slice() };
 })();
