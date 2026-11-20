@@ -56,7 +56,9 @@ const conf=(a,b)=>GR.some(r=>r.includes(a)&&r.includes(b));
     let made=false;
     if(x){
       const ac=G.filter(h=>h[2]&&h!==g&&h[2].toLowerCase()!==x.toLowerCase()&&!(h[1]===t));
-      const d3=pick(ac.filter(h=>h[0]===c),3,[]).concat(pick(ac.filter(h=>h[0]!==c),3,[])).slice(0,3).map(h=>h[2]);
+      /* hand-written wrong answers (5th field) fit the same letters, so the answer can't be found by matching initials; otherwise borrow other acronyms' expansions */
+      const nx=s=>String(s).toLowerCase().replace(/[^a-z0-9]/g,''),own=Array.isArray(g[4])?[...new Set(g[4].filter(w=>typeof w==='string'&&w.trim()&&nx(w)!==nx(x)))]:[];
+      const d3=own.length>=3?shuffle(own).slice(0,3):pick(ac.filter(h=>h[0]===c),3,[]).concat(pick(ac.filter(h=>h[0]!==c),3,[])).slice(0,3).map(h=>h[2]);
       const o=[x].concat(d3);
       if(o.length===4){ALLQ.push({k:'ga'+gi,c,t:'a',q:'What does the acronym '+t+' stand for?',o,a:0,e:t+' stands for '+x+'. '+d,i:'',src:'glossary'});made=true}
     }
