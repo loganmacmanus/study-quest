@@ -161,8 +161,8 @@
     const listeners = new Set(); let timer = 0;
     async function pull() {
       try {
-        const rows = await call("/rest/v1/scores?select=user_id,n,xp,lv,best,bq&guide=eq." + guide + "&order=best.desc,xp.desc&limit=200");
-        const snap = { docs: (rows || []).map((r) => ({ id: r.user_id, data: () => ({ n: r.n, xp: r.xp, lv: r.lv, best: r.best, bq: r.bq }) })) };
+        const rows = await call("/rest/v1/scores?select=user_id,n,xp,lv,best,bq,ks,acc,tm&guide=eq." + guide + "&order=xp.desc&limit=200");
+        const snap = { docs: (rows || []).map((r) => ({ id: r.user_id, data: () => ({ n: r.n, xp: r.xp, lv: r.lv, best: r.best, bq: r.bq, ks: r.ks, acc: r.acc, tm: r.tm }) })) };
         listeners.forEach((l) => l[0](snap));
       } catch (e) {
         if (e.status === 401 || e.status === 403) { keep(null); location.reload(); return; }
@@ -178,7 +178,7 @@
           async set(p) {
             try {
               await call("/rest/v1/scores?on_conflict=user_id,guide", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
-                body: { user_id: id, guide, n: p.n, xp: p.xp | 0, lv: p.lv | 0, best: p.best | 0, bq: p.bq | 0, t: Math.floor(+p.t) || null } });
+                body: { user_id: id, guide, n: p.n, xp: p.xp | 0, lv: p.lv | 0, best: p.best | 0, bq: p.bq | 0, ks: Math.min(100, Math.max(0, p.ks | 0)), acc: Math.min(100, Math.max(0, p.acc | 0)), tm: Math.min(1000000, Math.max(0, p.tm | 0)), t: Math.floor(+p.t) || null } });
               pull();
             } catch (e) { const err = new Error(e.code === "23505" ? "That callsign is already taken." : "Could not save the score."); err.code = e.code === "23505" ? "taken" : (e.status === 403 ? "not_granted" : "failed"); throw err; }
           }
