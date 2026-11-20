@@ -97,16 +97,29 @@
     }
     return null;
   }
-  function progress(g) {
-    const s = readState(g);
-    if (!s) return null;
-    let xp = Math.floor(+s.xp); xp = Number.isFinite(xp) && xp >= 0 ? Math.min(xp, 1e7) : 0;
-    const kn = s.known && typeof s.known === "object" && !Array.isArray(s.known) ? Object.keys(s.known).length : 0;
-    const pct = g.cards > 0 ? Math.min(100, Math.round(100 * kn / g.cards)) : 0;
-    // Knowledge studied (contract C2): S.ks = {d, n}; missing when the guide has not been opened since the update
-    const k = s.ks && typeof s.ks === "object" && !Array.isArray(s.ks) ? s.ks : null;
+  // progress saved to the account (CSQ.progress.list): {guide id: {ks, xp}}, validated like local state because it is untrusted
+  let remote = {};
+  function remoteOf(id) {
+    const r = Object.prototype.hasOwnProperty.call(remote, id) ? remote[id] : null; if (!r) return null;
+    const k = r.ks && typeof r.ks === "object" && !Array.isArray(r.ks) ? r.ks : null;
     let ks = null;
-    if (k && Number.isInteger(k.d) && Number.isInteger(k.n) && k.n > 0 && k.n <= 1e5 && k.d >= 0) { const d = Math.min(k.d, k.n); ks = { d, n: k.n, pct: Math.min(100, Math.round(100 * d / k.n)) }; }
+    if (k && Number.isInteger(k.d) && Number.isInteger(k.n) && k.n > 0 && k.n <= 1e5 && k.d >= 0) ks = { d: Math.min(k.d, k.n), n: k.n, t: Number.isFinite(+k.t) && +k.t > 0 && +k.t < 1e14 ? Math.floor(+k.t) : 0 };
+    let xp = Math.floor(+r.xp); xp = Number.isFinite(xp) && xp >= 0 ? Math.min(xp, 1e7) : 0;
+    return { ks, xp };
+  }
+  function progress(g) {
+    const s = readState(g), r = remoteOf(g.id);
+    if (!s && !r) return null;
+    let xp = s ? Math.floor(+s.xp) : 0; xp = Number.isFinite(xp) && xp >= 0 ? Math.min(xp, 1e7) : 0;
+    const kn = s && s.known && typeof s.known === "object" && !Array.isArray(s.known) ? Object.keys(s.known).length : 0;
+    const pct = g.cards > 0 ? Math.min(100, Math.round(100 * kn / g.cards)) : 0;
+    // Knowledge studied (contract C2): S.ks = {d, n, t}; missing when the guide has not been opened since the update
+    const k = s && s.ks && typeof s.ks === "object" && !Array.isArray(s.ks) ? s.ks : null;
+    let ks = null;
+    if (k && Number.isInteger(k.d) && Number.isInteger(k.n) && k.n > 0 && k.n <= 1e5 && k.d >= 0) ks = { d: Math.min(k.d, k.n), n: k.n, t: Number.isFinite(+k.t) && +k.t > 0 ? +k.t : 0 };
+    // the account's copy wins when it is newer, so a fresh device shows real numbers
+    if (r) { if (r.ks && (!ks || r.ks.t > ks.t)) ks = r.ks; xp = Math.max(xp, r.xp); }
+    if (ks) ks = { d: ks.d, n: ks.n, pct: Math.min(100, Math.round(100 * ks.d / ks.n)) };
     return { xp, level: Math.floor(xp / PER) + 1, known: kn, pct, ks };
   }
 
@@ -189,9 +202,23 @@
     if (!list.length) return showEmpty(box, "There are no study guides here yet.");
     guides = list;
     applyTheme(savedTheme(guides));
-    const ul = el("ul", "glist");
-    list.forEach((g) => ul.appendChild(card(g)));
+    draw();
+    syncRemote();
+  }
+  function draw() {
+    const box = $("#guides"), ul = el("ul", "glist");
+    guides.forEach((g) => ul.appendChild(card(g)));
     box.textContent = ""; box.appendChild(ul); paint(); paintStreak();
+  }
+  // study progress saved to the account: fetch it once and redraw the cards when something came back
+  function syncRemote() {
+    const P = window.CSQ && window.CSQ.progress; if (!P || !P.list) return;
+    P.list().then((rows) => {
+      if (!Array.isArray(rows) || !rows.length) return;
+      const m = {};
+      rows.slice(0, 100).forEach((x) => { if (x && typeof x.guide === "string" && /^[a-z0-9-]{2,32}$/.test(x.guide) && x.data && typeof x.data === "object") m[x.guide] = { ks: x.data.ks, xp: x.data.xp }; });
+      remote = m; if (guides.length) draw();
+    }).catch(() => {});
   }
 
   /* ---------- updates bell ---------- */

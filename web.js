@@ -28,7 +28,7 @@
     opts = opts || {};
     const h = Object.assign({ apikey: KEY, "Content-Type": "application/json" }, opts.headers || {});
     if (opts.auth !== false) { await fresh(); if (sess) h.Authorization = "Bearer " + sess.access_token; }
-    const r = await fetch(BASE + path, { method: opts.method || "GET", headers: h, body: opts.body ? JSON.stringify(opts.body) : undefined, cache: "no-store" });
+    const r = await fetch(BASE + path, { method: opts.method || "GET", headers: h, body: opts.body ? JSON.stringify(opts.body) : undefined, cache: "no-store", keepalive: !!opts.keepalive });
     let data = null; const txt = await r.text(); try { data = txt ? JSON.parse(txt) : null; } catch (e) { data = txt; }
     if (!r.ok) { const err = new Error((data && (data.msg || data.message || data.error_description || data.error)) || ("HTTP " + r.status)); err.status = r.status; err.data = data; err.code = data && data.code; throw err; }
     return data;
@@ -230,5 +230,36 @@
     } catch (e) { /* statistics must never get in the way of studying */ }
   }
 
-  window.CSQ = { root: ROOT, cfg: CFG, start, signOut, isOwner, call, get session() { return sess; }, set onReady(f) { onReady = f; }, boardAdapter, esc, suggest, recordAnswers };
+  /* ---------- study progress sync (supabase: public.progress, one row per person per guide) ---------- */
+  // CSQ.progress.get(guide) -> {data, updated_at} (data is null when no row exists yet) or null on any error
+  // CSQ.progress.put(guide, data, {keepalive}) -> true, false, "later" (rate limited) or "bad" (rejected);  CSQ.progress.list() -> [{guide, data: {ks, xp}, updated_at}] or null
+  // Nothing here throws; everything that comes back is untrusted and must be validated by the caller.
+  const progress = {
+    async get(guide) {
+      try {
+        if (!sess || !GUIDE_ID.test(String(guide))) return null;
+        const r = await call("/rest/v1/progress?select=guide,data,updated_at&guide=eq." + guide + "&limit=1");
+        if (!Array.isArray(r)) return null;
+        const row = r[0];
+        return row && typeof row === "object" ? { data: row.data, updated_at: typeof row.updated_at === "string" ? row.updated_at : null } : { data: null, updated_at: null };
+      } catch (e) { return null; }
+    },
+    async put(guide, data, o) {
+      try {
+        if (!sess || !GUIDE_ID.test(String(guide)) || !data || typeof data !== "object" || Array.isArray(data)) return false;
+        await call("/rest/v1/progress?on_conflict=user_id,guide", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: { guide, data }, keepalive: !!(o && o.keepalive) });
+        return true;
+      } catch (e) { return e && e.code === "P0001" ? "later" : e && e.code === "23514" ? "bad" : false; } // "later": saved too quickly (retry in a moment); "bad": rejected for size or shape (do not retry)
+    },
+    async list() {
+      try {
+        if (!sess) return null;
+        const r = await call("/rest/v1/progress?select=guide,updated_at,ks:data->ks,xp:data->xp&limit=100");
+        if (!Array.isArray(r)) return null;
+        return r.filter((x) => x && typeof x === "object" && GUIDE_ID.test(String(x.guide))).map((x) => ({ guide: String(x.guide), data: { ks: x.ks, xp: x.xp }, updated_at: typeof x.updated_at === "string" ? x.updated_at : null }));
+      } catch (e) { return null; }
+    }
+  };
+
+  window.CSQ = { root: ROOT, cfg: CFG, start, signOut, isOwner, call, get session() { return sess; }, set onReady(f) { onReady = f; }, boardAdapter, esc, suggest, recordAnswers, progress };
 })();
