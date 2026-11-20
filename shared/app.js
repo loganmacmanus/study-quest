@@ -23,7 +23,7 @@ const SK=GUIDE.storageKey;
 let S={name:'',xp:0,hist:[],theme:null,snd:1,mus:1,known:{},cd:{},badges:{},best:0,ans:0,cor:0,bestTest:0,bestQuiz:0,rivals:[],qs:0,qr:{},fv:{},dd:[],ks:null,bm:{}};
 try{let raw=localStorage.getItem(SK);if(!raw){for(const lk of (GUIDE.legacyKeys||[])){raw=localStorage.getItem(lk);if(raw)break}if(raw){const o=JSON.parse(raw);delete o.done;o.cd={};raw=JSON.stringify(o)}}if(raw)Object.assign(S,JSON.parse(raw))}catch(e){}
 /* validate everything read from storage: it is untrusted input */
-(function clean(){const num=(v,max)=>{v=Math.floor(+v);return Number.isFinite(v)&&v>=0?Math.min(v,max):0};const obj=v=>v&&typeof v==='object'&&!Array.isArray(v)?v:{};
+function cleanS(S){S.su=typeof S.su==='string'&&/^[0-9a-f-]{36}$/.test(S.su)?S.su:'';const num=(v,max)=>{v=Math.floor(+v);return Number.isFinite(v)&&v>=0?Math.min(v,max):0};const obj=v=>v&&typeof v==='object'&&!Array.isArray(v)?v:{};
   S.name=typeof S.name==='string'&&/^[A-Z0-9]{3}$/.test(S.name)?S.name:'';
   ['xp','best','ans','cor','qs'].forEach(k=>S[k]=num(S[k],1e7));S.bestTest=num(S.bestTest,100);S.bestQuiz=num(S.bestQuiz,100);
   S.theme=S.theme==='dark'||S.theme==='light'?S.theme:null;S.snd=S.snd?1:0;S.mus=S.mus?1:0;S.skip=S.skip?1:0;
@@ -37,8 +37,11 @@ try{let raw=localStorage.getItem(SK);if(!raw){for(const lk of (GUIDE.legacyKeys|
   {const o=obj(S.bm),b={};let n=0;for(const k of Object.keys(o)){if(n>=1000)break;if(o[k]&&k.length<=40&&/^(n:[A-Za-z0-9]{1,8}:\d{1,5}|g:\d{1,5}|q:(s|ga|gd)\d{1,5}|pg:[a-z0-9-]{2,20}:\d{1,3}:\d{1,4})$/.test(k)){b[k]=1;n++}}S.bm=b} /* bookmarks (A2): see contract C2 */
   {const o=obj(S.ks),n=num(o.n,1e5);S.ks={d:Math.min(num(o.d,1e5),n),n,t:num(o.t,1e14)}}
   S.hist=Array.isArray(S.hist)?S.hist.filter(h=>h&&typeof h==='object').slice(-200).map(h=>({mode:h.mode==='test'?'test':'quiz',scope:String(h.scope||'').slice(0,80),pct:num(h.pct,100),n:num(h.n,1e4),t:num(h.t,1e14)})):[];
-})();
-const save=()=>{try{S.ks=ksCalc()}catch(e){}try{localStorage.setItem(SK,JSON.stringify(S))}catch(e){}};
+  S.bmt=num(S.bmt,1e14);{const o=obj(S.rx);S.rx={quiz:num(o.quiz,1e14),test:num(o.test,1e14)}} /* sync: time of the last bookmark change, and per-mode "run finished or discarded" times */
+  return S}
+cleanS(S);
+const persistS=()=>{try{S.ks=ksCalc()}catch(e){}try{localStorage.setItem(SK,JSON.stringify(S))}catch(e){}};
+const save=()=>{persistS();try{syncDirty()}catch(e){}};
 
 /* ---------- question bank ---------- */
 const ALLQ=[];
@@ -442,7 +445,7 @@ function sheet(){const old=$('#sq-print');if(old)old.remove();const d=document.c
   d.innerHTML=h;document.body.appendChild(d);document.body.classList.add('sq-printing');
   const done=()=>{document.body.classList.remove('sq-printing');d.remove();removeEventListener('afterprint',done)};addEventListener('afterprint',done);try{window.print()}catch(e){done()}}
 function bmToggle(b){const k=b.dataset.bm;if(!/^[A-Za-z0-9:-]{1,40}$/.test(k||''))return;
-  if(S.bm[k])delete S.bm[k];else{if(Object.keys(S.bm).length>=1000){toast('Your saved list is full (1000). Remove one first.',2400);return}S.bm[k]=1}save();sfx.click();
+  if(S.bm[k])delete S.bm[k];else{if(Object.keys(S.bm).length>=1000){toast('Your saved list is full (1000). Remove one first.',2400);return}S.bm[k]=1}S.bmt=Date.now();save();sfx.click();
   const on=!!S.bm[k];main.querySelectorAll('[data-bm]').forEach(x=>{if(x.dataset.bm===k){x.classList.toggle('on',on);x.setAttribute('aria-pressed',on);x.textContent=on?'★':'☆';x.title=on?'Saved. Tap to remove':'Save for later'}});
   if(V==='study'&&sub==='saved'){const all=[...main.querySelectorAll('[data-bm]')],ix=all.indexOf(b);study();const nb=[...main.querySelectorAll('[data-bm]')],t=nb[Math.min(ix,nb.length-1)]||$('#svh');if(t)t.focus()}}
 /* one delegated click handler for the study extras (bookmark, go to note / page, show more, quiz saved, cheat sheet) */
@@ -533,7 +536,7 @@ const loadRuns=()=>{try{const o=JSON.parse(localStorage.getItem(RK)||'null');ret
 const putRuns=o=>{try{if(o.quiz||o.test)localStorage.setItem(RK,JSON.stringify({quiz:o.quiz||undefined,test:o.test||undefined}));else localStorage.removeItem(RK)}catch(e){}};
 function clearSlot(m){const o=loadRuns();if(o[m]){delete o[m];putRuns(o)}}
 const ser=r=>({k:r.qs.map(x=>x.q.k),o:r.qs.map(x=>x.ord),i:r.i,a:r.ans.map(b=>b?1:0),p:r.pick.map(v=>v==null?-1:v),st:r.streak,mx:r.mx,xp:r.xp,sc:r.scope,tm:r.timed?1:0,ms:Math.round(tlef(r)),sel:r.sel==null?-1:r.sel,t:Date.now()});
-function persist(){if(!R||R.fin||!R.qs||R.i>=R.qs.length)return;try{const o=loadRuns();o[R.mode]=ser(R);putRuns(o)}catch(e){}}
+function persist(){if(!R||R.fin||!R.qs||R.i>=R.qs.length)return;try{const o=loadRuns();o[R.mode]=ser(R);putRuns(o)}catch(e){}try{syncDirty()}catch(e){}}
 function hyd(m,s){try{if(!s||typeof s!=='object'||!Array.isArray(s.k)||!Array.isArray(s.o)||!Array.isArray(s.a)||!Array.isArray(s.p))return null;
   const n=s.k.length;if(!n||n>3000||s.o.length!==n)return null;const qs=[];
   for(let j=0;j<n;j++){const q=QBY[s.k[j]],o=s.o[j];if(!q||!Array.isArray(o)||o.length!==q.o.length||new Set(o).size!==o.length||!o.every(v=>Number.isInteger(v)&&v>=0&&v<o.length))return null;qs.push({q,ord:o.slice(),ci:o.indexOf(q.a)})}
@@ -545,7 +548,7 @@ const liveRun=m=>R&&!R.fin&&R.mode===m&&R.i<R.qs.length;
 function slot(m){const s=loadRuns()[m];if(!s)return null;const r=hyd(m,s);if(!r)clearSlot(m);return r}
 function enterRun(m){if(liveRun(m))return true;const r=slot(m);if(!r)return false;R=r;return true}
 function runInfo(m){const r=liveRun(m)?R:slot(m);return r?{at:Math.min(r.i+1,r.qs.length),n:r.qs.length,done:r.ans.length,timed:r.timed,ms:tlef(r),scope:r.scope}:null}
-function discardRun(m){if(liveRun(m)){clearInterval(tm);tm=0;R=null}clearSlot(m)}
+function discardRun(m){if(liveRun(m)){clearInterval(tm);tm=0;R=null}clearSlot(m);tomb(m)}
 function saveView(y){if(BOOT)return;try{const o={v:V==='res'?'home':V,sub,cur,multi:multi.slice(0,60),cfg:{n:cfg.n,kind:cfg.kind,tm:cfg.tm},y:Math.max(0,Math.round(y==null?scrollY:y)),t:Date.now()};if(o.v==='run'&&R)o.rm=R.mode;if(sub==='flash'&&fc)o.fc={c:fc.c,o:fc.o,i:fc.i,f:fc.f};if(sq)o.sq=sq.slice(0,80);if(gq)o.gq=gq.slice(0,80);const s=JSON.stringify(o);if(s!==lastV){lastV=s;localStorage.setItem(VK,s)}}catch(e){}}
 function restoreView(){let y=0;try{const o=JSON.parse(localStorage.getItem(VK)||'null');if(!o||typeof o!=='object'||Array.isArray(o))return 0;
   if(Array.isArray(o.multi)){const m=o.multi.filter(k=>k==='all'||KEYS.includes(k));if(m.length)multi=m.includes('all')?['all']:[...new Set(m)]}
@@ -561,6 +564,82 @@ addEventListener('scroll',()=>{clearTimeout(sT);sT=setTimeout(()=>saveView(),250
 const flush=()=>{if(V==='run')persist();saveView()};
 document.addEventListener('visibilitychange',()=>{if(document.hidden){pauseClock();flush()}else resumeClock()}); /* away = paused, back = same time left */
 addEventListener('pagehide',()=>{pauseClock();flush()});addEventListener('pageshow',e=>{if(e.persisted)resumeClock()});
+/* ---------- cross-device sync (CSQ.progress -> public.progress, one row per person per guide) ----------
+   Both devices are merged so nothing is lost (rules in SYNC-PLAN.md): sets are unioned, counters take the max, a question record with more answers wins,
+   bookmarks and unfinished runs follow whichever device changed last (S.bmt, run.t) and a finished/discarded run leaves a tombstone (S.rx) so it cannot come back.
+   Not synced (per device): theme, sound, music, accent, skip, the _view key and sq_prefs. Whatever the server returns is untrusted and is validated like local storage. */
+const SYK=['known','fv','qr','dd','bm','cd','badges','px','xp','best','bestTest','bestQuiz','ans','cor','qs','hist','name'],RUNM=['quiz','test'];
+const SY={on:!!(window.CSQ&&window.CSQ.progress&&window.CSQ.session&&/^[a-z0-9-]{2,32}$/.test(String(GUIDE.id))),ok:null,at:0,pulled:0,timer:0,busy:null,again:0,fail:0,ka:0};
+const hop=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
+const stab=v=>JSON.stringify(v,(k,x)=>x&&typeof x==='object'&&!Array.isArray(x)?Object.keys(x).sort().reduce((a,c)=>(a[c]=x[c],a),{}):x);
+const sigOf=d=>stab(Object.assign({},d,{ks:0}));
+function tomb(m){S.rx=S.rx||{quiz:0,test:0};S.rx[m]=Date.now();save()} /* a run finished or discarded here must not come back from another device */
+/* a run that passes the same validation as a local one, rebuilt from known fields only */
+function runRaw(m,s){if(!s||typeof s!=='object'||!hyd(m,s))return null;const o={};['k','o','i','a','p','st','mx','xp','sc','tm','ms','sel'].forEach(f=>{o[f]=s[f]});o.t=nn(s.t,1e14);return JSON.parse(JSON.stringify(o))}
+function localRuns(){const l=loadRuns(),r={};RUNM.forEach(m=>{const x=l[m]?runRaw(m,l[m]):null;if(x)r[m]=x});return r}
+/* the shape that is pushed (src = S for local state, or the validated remote copy) */
+function shape(src,runs){const d={v:1};SYK.forEach(k=>{d[k]=src[k]});if(!d.name)delete d.name;d.bmt=src.bmt;d.rx=src.rx;d.ks=src.ks||null;if(runs.quiz||runs.test)d.runs={quiz:runs.quiz,test:runs.test};return d}
+const syncData=()=>shape(S,localRuns());
+const hasProg=()=>!!(S.xp||S.ans||S.hist.length||S.name||['known','fv','qr','bm','px'].some(k=>Object.keys(S[k]).length)||Object.keys(loadRuns()).length);
+/* validate a server row: same checks as clean() plus the key formats the app itself writes */
+function syncNorm(raw){if(!raw||typeof raw!=='object'||Array.isArray(raw))return null;
+  const t={};SYK.concat(['bmt','rx']).forEach(k=>{if(hop(raw,k))t[k]=raw[k]});cleanS(t);
+  const kk=/^(g\d{1,5}|[A-Za-z0-9]{1,8}:\d{1,5})$/,qk=/^(s|ga|gd)\d{1,5}$/,pick=(o,cap,f)=>{const r={};let n=0;for(const k of Object.keys(o)){if(n>=cap)break;const v=f(k,o[k]);if(v!==undefined){r[k]=v;n++}}return r};
+  t.known=pick(t.known,5000,(k,v)=>kk.test(k)&&v?1:undefined);t.cd=pick(t.cd,5000,(k,v)=>qk.test(k)&&typeof v==='string'&&KEYS.includes(v)?v:undefined);
+  t.badges=pick(t.badges,100,(k,v)=>/^[a-z0-9]{1,12}$/.test(k)&&v?1:undefined);t.px=pick(t.px,500,(k,v)=>k!=='__proto__'&&v?1:undefined);
+  if(BAD.includes(t.name))t.name='';t.hist.forEach(h=>{h.scope=h.scope.replace(/[<>]/g,'')});
+  const runs={},rr=raw.runs&&typeof raw.runs==='object'&&!Array.isArray(raw.runs)?raw.runs:{};RUNM.forEach(m=>{const x=runRaw(m,rr[m]);if(x)runs[m]=x});t.runs=runs;t.ks=null;return t}
+const un=(a,b)=>{const o=Object.assign({},a);for(const k of Object.keys(b))if(!hop(o,k))o[k]=b[k];return o};
+/* merge a validated remote copy R into S (and the saved runs); true when anything here changed */
+function syncMerge(R){const before=sigOf(syncData());
+  S.known=un(S.known,R.known);S.fv=un(S.fv,R.fv);S.px=un(S.px,R.px);S.badges=un(S.badges,R.badges);S.cd=un(S.cd,R.cd);
+  S.dd=[...new Set(S.dd.concat(R.dd))].sort().slice(-120);
+  {const q={};let n=0;for(const k of Object.keys(S.qr).concat(Object.keys(R.qr))){if(hop(q,k))continue;if(n>=3000)break;const l=S.qr[k],r=R.qr[k];q[k]=!l?r:!r?l:(r.r+r.w>l.r+l.w?r:l);n++}S.qr=q}
+  ['xp','best','bestTest','bestQuiz','ans','cor','qs'].forEach(k=>{S[k]=Math.max(S[k]|0,R[k]|0)});
+  {const seen=new Set(),h=[];S.hist.concat(R.hist).forEach(x=>{const id=x.t?String(x.t):stab(x);if(!seen.has(id)){seen.add(id);h.push(x)}});S.hist=h.sort((a,b)=>a.t-b.t).slice(-200)}
+  if(!S.name&&R.name)S.name=R.name;
+  if(R.bmt>S.bmt||(!R.bmt&&!S.bmt)){if(R.bmt>S.bmt){S.bm=Object.assign({},R.bm);S.bmt=R.bmt}else S.bm=un(S.bm,R.bm)} /* newest bookmark change wins the whole list; with no times on either side nothing is dropped */
+  S.rx={quiz:Math.max(S.rx.quiz,R.rx.quiz),test:Math.max(S.rx.test,R.rx.test)};
+  {const cur=loadRuns(),L=localRuns(),out={};RUNM.forEach(m=>{if(liveRun(m)){if(cur[m])out[m]=cur[m];return}
+    const a=L[m],b=R.runs[m],ok=x=>x&&x.t>S.rx[m],ca=ok(a)?a:null,cb=ok(b)?b:null;const w=ca&&cb?(cb.t>ca.t?cb:ca):ca||cb;if(w)out[m]=w});
+    if(stab(out)!==stab(cur))putRuns(out)}
+  persistS();const changed=before!==sigOf(syncData());return changed}
+function syncUI(){const e=document.getElementById('syncst');if(e)e.textContent=syncText()}
+function syncText(){if(!SY.on)return'';if(SY.ok===false)return'Sync offline — saved on this device';if(SY.ok===null)return'Syncing progress…';const m=Math.floor((Date.now()-SY.at)/60000);return'Progress synced · '+(m<1?'just now':m+' min ago')}
+window.CSQ_SYNC=Object.freeze({text:syncText,paint:syncUI});
+/* quiet re-render after a late merge: never while answering, reading results, typing, or with a dialog open */
+function quietRender(){if(BOOT)return;hud();if(!['home','study','quiz','test','ranks'].includes(V)||(V==='study'&&sub==='flash'))return;
+  const a=document.activeElement;if((a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))||document.querySelector('.ov.on')||$('#palpop'))return;try{render()}catch(e){}}
+function syncAgain(ms){clearTimeout(SY.timer);SY.timer=setTimeout(()=>{SY.timer=0;syncRun()},ms)}
+function syncDirty(){if(!SY.on||SY.timer)return;SY.timer=setTimeout(()=>{SY.timer=0;syncRun()},3000)} /* push 3 s after the first change (later changes ride along) */
+/* one cycle: pull, merge, push if the merged result differs from what the server has. Serialised; never throws; offline just keeps the local copy. */
+function syncRun(ka){if(!SY.on)return Promise.resolve(false);if(SY.busy){SY.again=1;return SY.busy}
+  SY.busy=(async()=>{let okk=false;try{
+    /* progress on this browser belongs to one account: if a different person signed in, start them clean instead of merging someone else's progress into their account */
+    {const u=String((window.CSQ.session&&window.CSQ.session.user&&window.CSQ.session.user.id)||'');if(/^[0-9a-f-]{36}$/.test(u)){if(S.su&&S.su!==u)acctReset();if(S.su!==u){S.su=u;try{localStorage.setItem(SK,JSON.stringify(S))}catch(e){}}}}
+    const r=await window.CSQ.progress.get(GUIDE.id);
+    if(!r){SY.ok=false;SY.fail++;syncAgain(Math.min(300000,20000*Math.pow(2,SY.fail-1)));return false}
+    SY.pulled=Date.now();
+    const rn=r.data==null?null:syncNorm(r.data);let changed=false;if(rn)changed=syncMerge(rn);
+    const d=syncData(),same=rn&&sigOf(d)===sigOf(shape(rn,rn.runs));
+    if(same||(!rn&&r.data==null&&!hasProg()))okk=true;
+    else okk=await window.CSQ.progress.put(GUIDE.id,d,{keepalive:!!ka});
+    if(okk===true){SY.ok=true;SY.at=Date.now();SY.fail=0}
+    else if(okk==='later')syncAgain(2500); /* saved too quickly: not a failure, try again in a moment */
+    else if(okk==='bad')SY.ok=false; /* too big or rejected: retrying will not help */
+    else{SY.ok=false;SY.fail++;syncAgain(Math.min(300000,10000*Math.pow(2,SY.fail-1)))}
+    if(changed)quietRender();return okk===true}
+  catch(e){SY.ok=false;return false}
+  finally{SY.busy=null;syncUI();if(SY.again){SY.again=0;syncDirty()}}})();
+  return SY.busy}
+/* before the first render: wait up to 2.5 s for the account's copy; if it is slower the app starts on the local copy and the merge lands quietly later */
+function acctReset(){['known','fv','px','badges','cd','qr','bm'].forEach(k=>S[k]={});S.dd=[];S.hist=[];S.bmt=0;S.rx={quiz:0,test:0};S.name='';S.ks={d:0,n:0,t:0};['xp','best','bestTest','bestQuiz','ans','cor','qs'].forEach(k=>S[k]=0);try{localStorage.removeItem(RK)}catch(e){}if(R){clearInterval(tm);tm=0;R=null;if(V==='run'||V==='res')V='home'}quietRender()}
+function syncFirst(){if(!SY.on)return Promise.resolve();return Promise.race([syncRun(),new Promise(r=>setTimeout(r,2500))]).catch(()=>{})}
+document.addEventListener('visibilitychange',()=>{if(!SY.on)return;
+  if(document.hidden){if(SY.timer&&!SY.busy){clearTimeout(SY.timer);SY.timer=0;syncRun(true)}}
+  else if(Date.now()-SY.pulled>30000)syncRun()});
+addEventListener('pagehide',()=>{if(!SY.on||!SY.timer||SY.busy)return;clearTimeout(SY.timer);SY.timer=0;try{window.CSQ.progress.put(GUIDE.id,syncData(),{keepalive:true})}catch(e){}});
+
 
 /* ---------- run ---------- */
 function run(){
@@ -598,7 +677,7 @@ function fbShow(x,ok){$('#fb').innerHTML=fbHTML(x.q,ok,x);
 
 /* ---------- finish + results ---------- */
 function finish(){
-  clearInterval(tm);tm=0;if(!R)return go('home');if(R.fin)return;R.fin=1;clearSlot(R.mode);
+  clearInterval(tm);tm=0;if(!R)return go('home');if(R.fin)return;R.fin=1;clearSlot(R.mode);tomb(R.mode);
   while(R.ans.length<R.qs.length){R.ans.push(false);R.pick.push(null)}
   if(R.mode==='test')R.qs.forEach((x,i)=>{if(R.pick[i]!=null)recQ(x.q,R.ans[i]===true)}); /* test answers are recorded at the end; quiz answers were recorded as they were given */
   try{const rows=R.qs.map((x,i)=>R.pick[i]!=null?{k:x.q.k,ok:R.ans[i]===true}:null).filter(Boolean);if(rows.length&&window.CSQ&&typeof window.CSQ.recordAnswers==='function')window.CSQ.recordAnswers(GUIDE.id,rows)}catch(e){}
@@ -656,7 +735,9 @@ main.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[d
 
 /* ---------- boot ---------- */
 theme();hud();
+syncFirst().then(()=>{
 const y0=restoreView();render();BOOT=0;if(y0>0){scrollTo({top:y0,left:0,behavior:'auto'});requestAnimationFrame(()=>{if(Math.abs(scrollY-y0)>2)scrollTo(0,y0)})}saveView();resumeClock();
 {const k=ksCalc();if(!S.ks||S.ks.d!==k.d||S.ks.n!==k.n||!S.ks.t)save()} /* keep the hub's Knowledge studied number fresh even if no answer is given */
 takeXfer();addEventListener('hashchange',()=>{takeXfer();pushScore();render()});hud();if(!S.name&&!S.skip)gate(false);else{document.addEventListener('pointerdown',function f(){document.removeEventListener('pointerdown',f);if(S.mus)musicOn()},{once:true})}
+});
 })();

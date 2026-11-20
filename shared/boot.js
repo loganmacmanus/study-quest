@@ -44,7 +44,7 @@
     // optional Proofs feature: only guides whose content has an "X" object load proofs.js (before app.js)
     const hasX = data.X && typeof data.X === "object" && !Array.isArray(data.X);
     if (hasX) window.X = data.X;
-    const s = document.createElement("script"); s.src = "../shared/app.js?v=16"; s.defer = true;
+    const s = document.createElement("script"); s.src = "../shared/app.js?v=17"; s.defer = true;
     s.onload = buildNav;
     if (hasX) {
       const p = document.createElement("script"); p.src = "../shared/proofs.js?v=2"; p.defer = true;
@@ -81,9 +81,10 @@
         + link("../privacy.html", "🔒", "Privacy", "", false) + link("../terms.html", "📄", "Terms", "", false)
         + '<div class="navs">Settings</div><div id="navset"></div>'
         + '<button type="button" class="navl" id="signout"><span class="navi" aria-hidden="true">↩</span><span class="navt"><span>Sign out</span></span></button>'
-        + '<div class="navcp">© 2026 Logan MacManus. All rights reserved.</div>';
+        + '<div class="navcp"><div id="syncst" role="status"></div>© 2026 Logan MacManus. All rights reserved.</div>';
       document.getElementById("signout").onclick = CSQ.signOut;
       if (window.SQ_SHELL) window.SQ_SHELL.settings(document.getElementById("navset"), { guides: keyList });
+      if (window.CSQ_SYNC) window.CSQ_SYNC.paint();
       dots();
       document.getElementById("navclose").onclick = () => toggle(false);
     }
@@ -115,6 +116,7 @@
       if (open === isOpen) return;
       bar.classList.toggle("open", open); bk.classList.toggle("open", open);
       btn.setAttribute("aria-expanded", String(open));
+      if (open && window.CSQ_SYNC) window.CSQ_SYNC.paint();
       if (open) { lastFocus = document.activeElement; const f = bar.querySelector('a[aria-current="page"]') || bar.querySelector("a,button"); if (f) f.focus(); }
       else if (lastFocus && lastFocus.focus) lastFocus.focus();
     }
