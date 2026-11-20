@@ -7,7 +7,7 @@ const $=s=>document.querySelector(s),main=$('#main');
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const KEYS=Object.keys(CH);
 const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
-const KN=GUIDE.kindNames||{},KIND={s:(KN.s&&KN.s[0])||'Scenario',d:(KN.d&&KN.d[0])||'Definition',a:(KN.a&&KN.a[0])||'Acronym'};
+const KN=GUIDE.kindNames||{},KIND={s:(KN.s&&KN.s[0])||'Scenario',d:(KN.d&&KN.d[0])||'Definition',a:(KN.a&&KN.a[0])||'Acronym',v:(KN.v&&KN.v[0])||'Verse'};
 /* global preferences (contract C1): localStorage sq_prefs = {mute:0|1, anim:'auto'|'on'|'off'}; validated every read */
 const PRK='sq_prefs';
 function prefs(){const p={mute:0,anim:'auto'};try{const o=JSON.parse(localStorage.getItem(PRK)||'null');if(o&&typeof o==='object'&&!Array.isArray(o)){p.mute=o.mute===1||o.mute===true?1:0;p.anim=o.anim==='on'||o.anim==='off'?o.anim:'auto'}}catch(e){}return p}
@@ -405,7 +405,7 @@ function pgs(){if(PGC)return PGC;const a=Array.isArray(window.PG)?window.PG:[],o
   a.slice(0,12).forEach(p=>{if(!isO(p))return;const id=str(p.id,20);if(!/^[a-z0-9-]{2,20}$/.test(id)||ids.has(id)||(p.kind!=='list'&&p.kind!=='order'))return;ids.add(id);
     const groups=(Array.isArray(p.groups)?p.groups:[]).slice(0,40).map(g=>{g=isO(g)?g:{};const c=typeof g.c==='string'&&Object.prototype.hasOwnProperty.call(CH,g.c)?g.c:'';
       return{h:str(g.h,120),c,rows:(Array.isArray(g.rows)?g.rows:[]).slice(0,200).map(r=>{r=isO(r)?r:{};const s=p.kind==='order'&&typeof r.s==='number'&&r.s>=1&&r.s<=100?r.s:0;return{t:str(r.t,80),d:str(r.d,600),n:str(r.n,300),s}})}});
-    out.push({id,icon:str(p.icon,4),label:str(p.label,16)||id,title:str(p.title,80),intro:str(p.intro,400),kind:p.kind,groups})});
+    out.push({id,icon:str(p.icon,4),label:str(p.label,16)||id,title:str(p.title,80),intro:str(p.intro,400),kind:p.kind,quiz:p.quiz==='v'?'v':'',groups})});
   return PGC=out}
 const pgBy=id=>pgs().find(p=>p.id===id);
 const nt=(c,i)=>{const s=String(N[c][i]),j=s.indexOf(' — ');return{t:j>0?s.slice(0,j):'Note',d:j>0?s.slice(j+3):s}};
@@ -415,7 +415,7 @@ const noteItem=(c,i)=>{const n=nt(c,i);return '<div class="note">'+ctag(c)+'<b>'
 const glItem=i=>{const g=G[i];return '<div class="gl">'+bmBtn('g:'+i,'glossary term: '+g[1])+'<b>'+esc(g[1])+'</b>'+(g[2]?'<span class="ex">'+esc(g[2])+'</span>':'')+'<span class="tag" style="margin-left:8px">'+esc(chName(g[0]))+'</span><div style="margin-top:4px">'+esc(g[3])+'</div></div>'};
 const qItem=q=>'<div class="note">'+ctag(q.c)+'<span class="tag">'+KIND[q.t]+'</span><b>'+esc(q.q)+'</b><div style="margin-top:6px">Answer: <span style="color:var(--ok);font-weight:700">'+esc(q.o[q.a])+'</span></div>'+(q.e?'<div class="mut" style="margin-top:4px">'+esc(q.e)+'</div>':'')+'<div class="sq-row">'+bmBtn('q:'+q.k,'question: '+q.q)+'</div></div>';
 const pgItem=(p,gi,ri,pre,go)=>{const g=p.groups[gi],r=g.rows[ri];return '<div class="gl">'+bmBtn('pg:'+p.id+':'+gi+':'+ri,p.label+': '+r.t)+'<b>'+esc(pre||'')+esc(r.t)+'</b>'+(g.c?'<span class="tag" style="margin-left:8px">'+esc(chName(g.c))+'</span>':'')+(go?'<span class="tag" style="margin-left:8px">'+esc(p.icon+' '+p.label)+'</span>':'')+(r.d?'<div style="margin-top:4px">'+esc(r.d)+'</div>':'')+(r.n?'<div class="mut" style="margin-top:4px;font-size:14px">'+esc(r.n)+'</div>':'')+(go?'<div class="sq-row"><button type="button" class="btn g s" data-gopg="'+esc(p.id)+'">Open page</button></div>':'')+'</div>'};
-function pgPage(p){const ord=p.kind==='order';let h='<div class="card"><h2>'+esc(p.icon)+' '+esc(p.title||p.label)+'</h2>'+(p.intro?'<div class="mut">'+esc(p.intro)+'</div>':'')+'</div>',k=0;
+function pgPage(p){const ord=p.kind==='order';let h='<div class="card"><h2>'+esc(p.icon)+' '+esc(p.title||p.label)+'</h2>'+(p.intro?'<div class="mut">'+esc(p.intro)+'</div>':'')+(p.quiz&&ALLQ.some(q=>q.t===p.quiz)?'<div class="sq-row" style="margin-top:10px"><button type="button" class="btn" data-pgq="quiz">⚡ Quiz the verses ('+ALLQ.filter(q=>q.t===p.quiz).length+')</button><button type="button" class="btn g" data-pgq="test">🎯 Verse test</button></div>':'')+'</div>',k=0;
   if(ord){const all=[];p.groups.forEach(g=>g.rows.forEach(r=>{if(r.t)all.push(r)}));const mx=Math.max(1,...all.map(r=>r.s)),sun=/\bsun\b/i.test(p.title+' '+(p.groups[0]?p.groups[0].h:''));
     h+='<div class="card"><div class="mut sq-hint">Scroll sideways to see the whole strip →</div><div class="sq-ord" role="region" tabindex="0" aria-label="'+esc(p.label)+' in order, scrolls sideways"><ol class="sq-os">'+(sun?'<li class="sq-sun"><span class="sq-cw" aria-hidden="true">☀</span><span class="sq-n">Sun</span></li>':'')+all.map((r,i)=>{const px=r.s?Math.round((18+46*Math.sqrt(r.s/mx))*10)/10:30;return '<li><span class="sq-cw"><span class="sq-c" style="width:'+px+'px;height:'+px+'px"><b aria-hidden="true">'+(i+1)+'</b></span></span><span class="sq-n">'+esc(r.t)+'</span></li>'}).join('')+'</ol></div></div>'}
   p.groups.forEach((g,gi)=>{const rs=g.rows.map((r,ri)=>r.t?ri:-1).filter(x=>x>=0);if(!rs.length&&!g.h)return;h+=(g.h?'<h3 class="sq-gh">'+esc(g.h)+(g.c?' '+ctag(g.c):'')+'</h3>':'')+rs.map(ri=>{k++;return pgItem(p,gi,ri,ord?k+'. ':'',false)}).join('')});
@@ -456,10 +456,11 @@ function bmToggle(b){const k=b.dataset.bm;if(!/^[A-Za-z0-9:-]{1,40}$/.test(k||''
   const on=!!S.bm[k];main.querySelectorAll('[data-bm]').forEach(x=>{if(x.dataset.bm===k){x.classList.toggle('on',on);x.setAttribute('aria-pressed',on);x.textContent=on?'★':'☆';x.title=on?'Saved. Tap to remove':'Save for later'}});
   if(V==='study'&&sub==='saved'){const all=[...main.querySelectorAll('[data-bm]')],ix=all.indexOf(b);study();const nb=[...main.querySelectorAll('[data-bm]')],t=nb[Math.min(ix,nb.length-1)]||$('#svh');if(t)t.focus()}}
 /* one delegated click handler for the study extras (bookmark, go to note / page, show more, quiz saved, cheat sheet) */
-main.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-bm],[data-go],[data-gopg],[data-more],#svq,#sheet');if(!t)return;
+main.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-bm],[data-go],[data-gopg],[data-more],[data-pgq],#svq,#sheet');if(!t)return;
   if(t.dataset.bm!=null)return bmToggle(t);
   if(V!=='study')return;
   if(t.id==='sheet')return sheet();
+  if(t.dataset.pgq){const m=t.dataset.pgq==='test'?'test':'quiz';multi=['all'];cfg.kind='v';go(m);return}
   if(t.id==='svq'){const l=savedHTML().qs;if(l.length)start('quiz',l,'Saved questions');return}
   if(t.dataset.gopg!=null){const p=pgBy(t.dataset.gopg);if(p){sub='pg:'+p.id;fc=null;render();const b=main.querySelector('[data-sb="'+sub+'"]');if(b)b.focus()}return}
   if(t.dataset.more!=null){const g=t.dataset.more;sqn[g]=(sqn[g]||SPAGE)+SPAGE;const r=$('#sres');if(r){r.innerHTML=searchHTML();const h=r.querySelector('[data-sg="'+g+'"]');if(h)h.focus()}return}
@@ -497,12 +498,12 @@ const pool=()=>ALLQ.filter(q=>(multi.includes('all')||multi.includes(q.c))&&(cfg
 /* test time limit: untimed, 45 s per question, or one total clock (30 / 50 / 75 minutes) */
 const TL=[['0','Untimed'],['q','Timed · 45 s each'],['30','30 min total'],['50','50 min total'],['75','75 min total']];
 function setup(m){
-  const KT=['s','d','a'].filter(t=>ALLQ.some(q=>q.t===t));if(cfg.kind!=='all'&&!KT.includes(cfg.kind))cfg.kind='all';
+  const KT=['s','d','a','v'].filter(t=>ALLQ.some(q=>q.t===t));if(cfg.kind!=='all'&&!KT.includes(cfg.kind))cfg.kind='all';
   const n=pool().length,isT=m==='test',mc=missed().length,ri=runInfo(m);
   main.innerHTML='<div class="page"><div class="card"><h2>'+(isT?'🎯 Test mode':'⚡ Quiz mode')+'</h2><div class="mut">'+(isT?'Graded. No feedback until the end, then a full review with answers and explanations.':'Instant feedback with a full explanation after every answer. Earn XP and streak bonuses.')+'</div>'
   +(ri?'<div class="note" id="rsm"><b>Unfinished '+(isT?'test':'quiz')+'</b><div class="mut" id="rsi">'+esc(ri.scope)+' · question '+ri.at+' of '+ri.n+(ri.timed?' · '+fmt(Math.ceil(ri.ms/1000))+' left':'')+'</div><div class="sq-row" id="rsb"><button type="button" class="btn" id="rcont">Continue (question '+ri.at+' of '+ri.n+')</button><button type="button" class="btn g s" id="rnew">Start new</button></div></div>':'')
   +'<span class="lab">'+UNITS()+' (pick in the bar above)</span><div style="margin:4px 0 8px">'+(multi.includes('all')?'<span class="tag">All '+UNITS().toLowerCase()+'</span>':multi.map(k=>'<span class="tag">'+esc(chName(k))+' · '+esc(SECM(k)?SECM(k)[2]:CH[k][0])+'</span>').join(''))+'</div>'
-  +(KT.length>1?'<span class="lab">Question type</span><div class="tog" id="tk">'+[['all','All']].concat([['s',(KN.s&&KN.s[1])||'Scenarios'],['d',(KN.d&&KN.d[1])||'Definitions'],['a',(KN.a&&KN.a[1])||'Acronyms']].filter(x=>KT.includes(x[0]))).map(x=>'<button class="'+(cfg.kind===x[0]?'on':'')+'" data-v="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>':'')
+  +(KT.length>1?'<span class="lab">Question type</span><div class="tog" id="tk">'+[['all','All']].concat([['s',(KN.s&&KN.s[1])||'Scenarios'],['d',(KN.d&&KN.d[1])||'Definitions'],['a',(KN.a&&KN.a[1])||'Acronyms'],['v',(KN.v&&KN.v[1])||'Verses']].filter(x=>KT.includes(x[0]))).map(x=>'<button class="'+(cfg.kind===x[0]?'on':'')+'" data-v="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>':'')
   +'<span class="lab">How many</span><div class="tog" id="tn">'+['10','20','40','all'].map(x=>'<button class="'+(cfg.n===x?'on':'')+'" data-v="'+x+'">'+(x==='all'?'All ('+n+')':x)+'</button>').join('')+'</div>'
   +(isT?'<span class="lab">Timer</span><div class="tog sq-wrap" id="tt" role="group" aria-label="Time limit">'+TL.map(x=>'<button class="'+(cfg.tm===x[0]?'on':'')+'" data-v="'+x[0]+'" aria-pressed="'+(cfg.tm===x[0])+'">'+x[1]+'</button>').join('')+'</div>'+(/^\d+$/.test(cfg.tm)?'<div class="mut" style="font-size:13px">One clock for the whole test: '+cfg.tm+' minutes. When it reaches 0:00 the test ends by itself and unanswered questions count as wrong.</div>':''):'')
   +'<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="go" '+(n?'':'disabled')+'>Start '+(isT?'test':'quiz')+' ('+Math.min(n,cfg.n==='all'?n:+cfg.n)+' questions)</button>'+(!isT&&mc?'<button class="btn g" id="rvm">🔁 Review missed ('+mc+')</button>':'')+'</div>'+(n?'':'<div class="err">No questions match. Change the filters.</div>')+'</div></div>';
@@ -521,7 +522,7 @@ function start(m,custom,label){
   if(!p.length)return;
   const qs=p.map(q=>{const ord=shuffle(q.o.map((t,i)=>i));return{q,ord,ci:ord.indexOf(q.a)}});
   persist(); /* a live run of the other mode is kept (a live run of this mode is replaced below) */
-  R={mode:m,qs,i:0,right:0,ans:[],pick:[],streak:0,mx:0,lock:0,timed:m==='test'&&cfg.tm!=='0',tleft:cfg.tm==='q'?qs.length*45:/^\d+$/.test(cfg.tm)?+cfg.tm*60:0,scope:label||(multi.includes('all')?'All '+UNITS().toLowerCase():multi.map(chName).join(', ')),sel:null,xp:0,end:0};
+  R={mode:m,qs,i:0,right:0,ans:[],pick:[],streak:0,mx:0,lock:0,timed:m==='test'&&cfg.tm!=='0',tleft:cfg.tm==='q'?qs.length*45:/^\d+$/.test(cfg.tm)?+cfg.tm*60:0,scope:label||(cfg.kind==='v'?'Verse references'+(multi.includes('all')?'':' · '+multi.map(chName).join(', ')):multi.includes('all')?'All '+UNITS().toLowerCase():multi.map(chName).join(', ')),sel:null,xp:0,end:0};
   R.t0=R.tleft;R.tms=R.tleft*1000;V='run';clearInterval(tm);tm=0;
   render();scrollTo(0,0);resumeClock();saveView(0);
 }
@@ -559,7 +560,7 @@ function discardRun(m){if(liveRun(m)){clearInterval(tm);tm=0;R=null}clearSlot(m)
 function saveView(y){if(BOOT)return;try{const o={v:V==='res'?'home':V,sub,cur,multi:multi.slice(0,60),cfg:{n:cfg.n,kind:cfg.kind,tm:cfg.tm},y:Math.max(0,Math.round(y==null?scrollY:y)),t:Date.now()};if(o.v==='run'&&R)o.rm=R.mode;if(sub==='flash'&&fc)o.fc={c:fc.c,o:fc.o,i:fc.i,f:fc.f};if(sq)o.sq=sq.slice(0,80);if(gq)o.gq=gq.slice(0,80);const s=JSON.stringify(o);if(s!==lastV){lastV=s;localStorage.setItem(VK,s)}}catch(e){}}
 function restoreView(){let y=0;try{const o=JSON.parse(localStorage.getItem(VK)||'null');if(!o||typeof o!=='object'||Array.isArray(o))return 0;
   if(Array.isArray(o.multi)){const m=o.multi.filter(k=>k==='all'||KEYS.includes(k));if(m.length)multi=m.includes('all')?['all']:[...new Set(m)]}
-  if(o.cfg&&typeof o.cfg==='object'){if(['10','20','40','all'].includes(o.cfg.n))cfg.n=o.cfg.n;if(['all','s','d','a'].includes(o.cfg.kind))cfg.kind=o.cfg.kind;if(TL.some(x=>x[0]===o.cfg.tm))cfg.tm=o.cfg.tm}
+  if(o.cfg&&typeof o.cfg==='object'){if(['10','20','40','all'].includes(o.cfg.n))cfg.n=o.cfg.n;if(['all','s','d','a','v'].includes(o.cfg.kind))cfg.kind=o.cfg.kind;if(TL.some(x=>x[0]===o.cfg.tm))cfg.tm=o.cfg.tm}
   if(typeof o.sub==='string'&&(['notes','flash','gloss','saved','search'].includes(o.sub)||(o.sub.slice(0,3)==='pg:'&&pgBy(o.sub.slice(3)))))sub=o.sub;
   if(KEYS.includes(o.cur)||(o.cur==='all'&&sub==='gloss'))cur=o.cur;
   if(typeof o.sq==='string')sq=o.sq.slice(0,80);if(typeof o.gq==='string')gq=o.gq.slice(0,80);
