@@ -353,9 +353,11 @@ function chips(){const el=$('#chips');
   el.innerHTML=items.map(it=>{const k=it[0],on=sel.includes(k),p=k==='all'?Math.round(KEYS.reduce((a,c)=>a+prog(c),0)/KEYS.length):prog(k);return '<button class="chip '+(on?'on':'')+'" data-k="'+esc(k)+'" aria-pressed="'+on+'" aria-label="'+(k==='all'?'All chapters':esc(chName(k))+' '+esc(CH[k][0]))+', '+p+' percent"><span class="ring" style="--p:'+p+'"><b data-g="'+esc(it[1])+'"></b></span><small>'+it[2]+'</small></button>'}).join('');
   el.querySelectorAll('button').forEach(b=>b.onclick=()=>{sfx.click();pick(b.dataset.k)})}
 function pick(k){if(V==='study'){cur=k;fc=null}else{if(k==='all')multi=['all'];else{multi=multi.filter(x=>x!=='all');multi=multi.includes(k)?multi.filter(x=>x!==k):multi.concat(k);if(!multi.length)multi=['all']}}render()}
-function go(v){V=v;if(v!=='run')clearInterval(tm);if(v==='study'&&cur==='all'&&sub!=='gloss')cur=KEYS[0];render();scrollTo({top:0,behavior:reduce()?'auto':'smooth'})}
+function go(v,keep){if(V==='run'&&v!=='run'){pauseClock();persist()} /* leaving a run pauses its clock and keeps it for later */
+  if(!keep&&(v==='quiz'||v==='test')&&enterRun(v))v='run'; /* an unfinished run of that mode is shown instead of the setup screen */
+  V=v;if(v!=='run'){clearInterval(tm);tm=0}if(v==='study'&&cur==='all'&&sub!=='gloss')cur=KEYS[0];render();scrollTo({top:0,behavior:reduce()?'auto':'smooth'});if(V==='run')resumeClock();saveView(0)}
 let API=null;const getAPI=()=>API||(API=Object.freeze({main,esc,sfx,addXP:(n,x,y)=>{addXP(n,x,y);badgeToast(chk())},chName,chTitle,KEYS,CH:()=>CH,sel:()=>multi.slice(),save,state:S,rerender:()=>render(),reduce}));
-function render(){document.body.dataset.view=V;tabs();chips();hud();({home,study,quiz:()=>setup('quiz'),test:()=>setup('test'),ranks,run,res,proofs:()=>window.CSQ_PROOFS.render(getAPI())}[V]||home)()}
+function render(){document.body.dataset.view=V;tabs();chips();hud();({home,study,quiz:()=>setup('quiz'),test:()=>setup('test'),ranks,run,res,proofs:()=>window.CSQ_PROOFS.render(getAPI())}[V]||home)();saveView()}
 $('#thm').onclick=()=>{const d=isDark();S.theme=d?'light':'dark';theme();save();sfx.click()};
 $('#mus').onclick=()=>{S.mus=S.mus?0:1;save();if(S.mus)musicOn();else musicOff();hud();toast(S.mus?(PR.mute?'🔇 Music on, but all sounds are muted in the menu':'🎵 Music on'):'🔇 Music muted',1800)};
 $('#snd').onclick=()=>{S.snd=S.snd?0:1;save();hud();if(S.snd)sfx.click()};
@@ -377,10 +379,10 @@ function home(){
   +'<h2 style="margin:6px 0 10px">'+UNITS()+'</h2><div class="grid">'+KEYS.map((k,i)=>{const p=prog(k);return '<div class="card hv" style="display:flex;flex-direction:column;animation-delay:'+i*.04+'s"><div style="display:flex;gap:12px;align-items:center"><span class="cico" aria-hidden="true">'+esc(CH[k][1])+'</span><div style="min-width:0"><h3 style="margin:0">'+esc(chTitle(k))+'</h3><div class="mut" style="font-size:14px">'+esc(chSub(k))+'</div></div></div><div style="margin-top:auto"><div class="bar" style="margin:12px 0 8px"><i style="width:'+p+'%"></i></div><div class="mut" style="font-size:13px">'+p+'% mastered · '+POOLN(k)+' questions</div><div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="btn s g" data-s="'+esc(k)+'">Study</button><button class="btn s" data-q="'+esc(k)+'">Quiz</button></div></div></div>'}).join('')+'</div>'
   +'<h2 style="margin:6px 0 10px">Badges</h2><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr))">'+BD.map(b=>'<div class="badge '+(S.badges[b[0]]?'':'off')+'"><span aria-hidden="true">'+b[1]+'</span>'+b[2]+'</div>').join('')+'</div>'
   +(top.length?'<div class="card"><h3>Your best runs</h3>'+top.map(h=>'<div style="display:flex;justify-content:space-between;padding:4px 0"><span>'+(h.mode==='test'?'🎯':'⚡')+' '+esc(h.scope)+'</span><b>'+h.pct+'%</b></div>').join('')+'</div>':'')+'</div>';
-  $('#q10').onclick=()=>{multi=['all'];cfg.kind='all';cfg.n='10';start('quiz')};$('#t30').onclick=()=>{multi=['all'];cfg.kind='all';cfg.n='40';go('test')};
+  $('#q10').onclick=()=>{multi=['all'];cfg.kind='all';cfg.n='10';start('quiz')};$('#t30').onclick=()=>{multi=['all'];cfg.kind='all';cfg.n='40';go('test',1)};
   {const rv=$('#rvm'),wk=$('#wkb');if(rv)rv.onclick=reviewMissed;if(wk)wk.onclick=()=>practiceWeak(weakHome().map(w=>w.c))}
   main.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{cur=b.dataset.s;sub='notes';go('study')});
-  main.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{multi=[b.dataset.q];go('quiz')});
+  main.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{multi=[b.dataset.q];go('quiz',1)});
 }
 
 /* ---------- study ---------- */
@@ -476,7 +478,7 @@ function study(){
   {const ss=$('#ssearch');if(ss)ss.oninput=()=>{sq=ss.value;sqn={};$('#sres').innerHTML=searchHTML()}}
   main.querySelectorAll('[data-k]').forEach(b=>b.onclick=e=>{const k=b.dataset.k;if(S.known[k])delete S.known[k];else{S.known[k]=1;touchDay();sfx.ok();addXP(2,e.clientX,e.clientY);badgeToast(chk())}save();render()});
   const gs=$('#gsearch');if(gs)gs.oninput=()=>{gq=gs.value;const p=gs.selectionStart;study();const n=$('#gsearch');n.focus();n.setSelectionRange(p,p)};
-  if(sub==='flash'){const fl=()=>{fc.f^=1;$('#fcard').classList.toggle('flip');sfx.click();if(fc.f){const y=cs[fc.o[fc.i%cs.length]];if(y&&!S.fv[y.k]&&Object.keys(S.fv).length<3000)S.fv[y.k]=1;touchDay();save()}};main.querySelectorAll('.face').forEach(f=>{f.onclick=fl;f.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fl()}}});
+  if(sub==='flash'){const fl=()=>{fc.f^=1;$('#fcard').classList.toggle('flip');sfx.click();if(fc.f){const y=cs[fc.o[fc.i%cs.length]];if(y&&!S.fv[y.k]&&Object.keys(S.fv).length<3000)S.fv[y.k]=1;touchDay();save()}saveView()};main.querySelectorAll('.face').forEach(f=>{f.onclick=fl;f.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fl()}}});
     const cs=cards(fc.c).map(x=>({k:x.k})).concat(gcards(fc.c).map(g=>({k:g.k}))),nx=ok=>{const y=cs[fc.o[fc.i%cs.length]];touchDay();if(ok&&!S.known[y.k]){S.known[y.k]=1;sfx.ok();addXP(2,innerWidth/2,innerHeight/2);badgeToast(chk())}fc.i++;fc.f=0;save();render()};$('#fno').onclick=()=>nx(false);$('#fyes').onclick=()=>nx(true)}
 }
 
@@ -486,8 +488,9 @@ const pool=()=>ALLQ.filter(q=>(multi.includes('all')||multi.includes(q.c))&&(cfg
 const TL=[['0','Untimed'],['q','Timed · 45 s each'],['30','30 min total'],['50','50 min total'],['75','75 min total']];
 function setup(m){
   const KT=['s','d','a'].filter(t=>ALLQ.some(q=>q.t===t));if(cfg.kind!=='all'&&!KT.includes(cfg.kind))cfg.kind='all';
-  const n=pool().length,isT=m==='test',mc=missed().length;
+  const n=pool().length,isT=m==='test',mc=missed().length,ri=runInfo(m);
   main.innerHTML='<div class="page"><div class="card"><h2>'+(isT?'🎯 Test mode':'⚡ Quiz mode')+'</h2><div class="mut">'+(isT?'Graded. No feedback until the end, then a full review with answers and explanations.':'Instant feedback with a full explanation after every answer. Earn XP and streak bonuses.')+'</div>'
+  +(ri?'<div class="note" id="rsm"><b>Unfinished '+(isT?'test':'quiz')+'</b><div class="mut" id="rsi">'+esc(ri.scope)+' · question '+ri.at+' of '+ri.n+(ri.timed?' · '+fmt(Math.ceil(ri.ms/1000))+' left':'')+'</div><div class="sq-row" id="rsb"><button type="button" class="btn" id="rcont">Continue (question '+ri.at+' of '+ri.n+')</button><button type="button" class="btn g s" id="rnew">Start new</button></div></div>':'')
   +'<span class="lab">'+UNITS()+' (pick in the bar above)</span><div style="margin:4px 0 8px">'+(multi.includes('all')?'<span class="tag">All '+UNITS().toLowerCase()+'</span>':multi.map(k=>'<span class="tag">'+esc(chName(k))+' · '+esc(SECM(k)?SECM(k)[2]:CH[k][0])+'</span>').join(''))+'</div>'
   +(KT.length>1?'<span class="lab">Question type</span><div class="tog" id="tk">'+[['all','All']].concat([['s',(KN.s&&KN.s[1])||'Scenarios'],['d',(KN.d&&KN.d[1])||'Definitions'],['a',(KN.a&&KN.a[1])||'Acronyms']].filter(x=>KT.includes(x[0]))).map(x=>'<button class="'+(cfg.kind===x[0]?'on':'')+'" data-v="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>':'')
   +'<span class="lab">How many</span><div class="tog" id="tn">'+['10','20','40','all'].map(x=>'<button class="'+(cfg.n===x?'on':'')+'" data-v="'+x+'">'+(x==='all'?'All ('+n+')':x)+'</button>').join('')+'</div>'
@@ -498,23 +501,71 @@ function setup(m){
   if(isT)$('#tt').querySelectorAll('button').forEach(b=>b.onclick=()=>{cfg.tm=b.dataset.v;setup(m)});
   {const rv=$('#rvm');if(rv)rv.onclick=reviewMissed}
   $('#go').onclick=()=>start(m);
+  {const c=$('#rcont'),nw=$('#rnew');if(c)c.onclick=()=>go(m);
+    if(nw)nw.onclick=()=>{ /* in-page confirm (no browser dialog) */
+      $('#rsb').innerHTML='<span role="alert" style="flex-basis:100%">Discard this unfinished '+(isT?'test':'quiz')+' and your '+ri.done+' answer'+(ri.done===1?'':'s')+' so far?</span><button type="button" class="btn s" id="rdisc">Yes, discard it</button><button type="button" class="btn g s" id="rkeep">Keep it</button>';
+      $('#rkeep').onclick=()=>{setup(m);const b=$('#rnew');if(b)b.focus()};$('#rdisc').onclick=()=>{discardRun(m);setup(m);saveView();const g=$('#go');if(g)g.focus()};$('#rkeep').focus()}}
 }
 function start(m,custom,label){
   let p=custom||pool();p=shuffle(p);if(!custom&&cfg.n!=='all')p=p.slice(0,+cfg.n);
   if(!p.length)return;
   const qs=p.map(q=>{const ord=shuffle(q.o.map((t,i)=>i));return{q,ord,ci:ord.indexOf(q.a)}});
-  R={mode:m,qs,i:0,right:0,ans:[],pick:[],streak:0,mx:0,lock:0,timed:m==='test'&&cfg.tm!=='0',tleft:cfg.tm==='q'?qs.length*45:/^\d+$/.test(cfg.tm)?+cfg.tm*60:0,scope:label||(multi.includes('all')?'All '+UNITS().toLowerCase():multi.map(chName).join(', ')),sel:null,xp:0};
-  V='run';clearInterval(tm);
-  if(R.timed){R.end=Date.now()+R.tleft*1000;tm=setInterval(tick,500)}
-  render();scrollTo(0,0);
+  persist(); /* a live run of the other mode is kept (a live run of this mode is replaced below) */
+  R={mode:m,qs,i:0,right:0,ans:[],pick:[],streak:0,mx:0,lock:0,timed:m==='test'&&cfg.tm!=='0',tleft:cfg.tm==='q'?qs.length*45:/^\d+$/.test(cfg.tm)?+cfg.tm*60:0,scope:label||(multi.includes('all')?'All '+UNITS().toLowerCase():multi.map(chName).join(', ')),sel:null,xp:0,end:0};
+  R.tms=R.tleft*1000;V='run';clearInterval(tm);tm=0;
+  render();scrollTo(0,0);resumeClock();saveView(0);
 }
 /* test clock: counts down to a fixed deadline (so a slow or background tab cannot drift); at 0 the test finishes by itself */
-function tick(){if(!R||!R.timed||V!=='run')return;R.tleft=Math.max(0,Math.ceil((R.end-Date.now())/1000));const t=$('#tleft');if(t){t.textContent=fmt(R.tleft);t.classList.toggle('sq-low',R.tleft<=60)}if(R.tleft<=0){clearInterval(tm);if(R.sel!=null)commitTest();finish()}}
+function tick(){if(!R||!R.timed||V!=='run'||!R.end||document.hidden)return; /* paused (no deadline) or page hidden: never finishes by itself */
+  R.tleft=Math.max(0,Math.ceil((R.end-Date.now())/1000));const t=$('#tleft');if(t){t.textContent=fmt(R.tleft);t.classList.toggle('sq-low',R.tleft<=60)}if(R.tleft<=0){clearInterval(tm);tm=0;R.tms=0;R.end=0;if(R.sel!=null)commitTest();finish()}}
 const fmt=s=>Math.floor(s/60)+':'+String(Math.max(0,s%60)).padStart(2,'0');
+
+/* ---------- resume: the run in progress (per mode) and the last view survive reloads, tab switches and guide switches ----------
+   localStorage <storageKey>_run = {quiz?:run, test?:run} (questions by key + shuffled option order, answers so far, streak, xp, time left)
+   localStorage <storageKey>_view = {v, sub, cur, multi, cfg, fc, sq, gq, y}. Everything read back is validated; a run whose keys no longer resolve is dropped.
+   Timed tests keep R.tms (ms left) while paused; R.end (a deadline) exists only while the clock runs. */
+const RK=SK+'_run',VK=SK+'_view';let BOOT=1,lastV='',sT=0;
+const nn=(v,mx)=>{v=Math.floor(+v);return Number.isFinite(v)&&v>=0?Math.min(v,mx):0};
+const tlef=r=>r.timed?(r.end?Math.max(0,r.end-Date.now()):r.tms):0;
+function pauseClock(){clearInterval(tm);tm=0;if(R&&R.timed&&R.end){R.tms=Math.max(0,R.end-Date.now());R.end=0;R.tleft=Math.ceil(R.tms/1000)}}
+function resumeClock(){clearInterval(tm);tm=0;if(!R||!R.timed||R.fin||V!=='run'||document.hidden)return;if(!R.end)R.end=Date.now()+R.tms;tm=setInterval(tick,500);tick()}
+const loadRuns=()=>{try{const o=JSON.parse(localStorage.getItem(RK)||'null');return o&&typeof o==='object'&&!Array.isArray(o)?o:{}}catch(e){return{}}};
+const putRuns=o=>{try{if(o.quiz||o.test)localStorage.setItem(RK,JSON.stringify({quiz:o.quiz||undefined,test:o.test||undefined}));else localStorage.removeItem(RK)}catch(e){}};
+function clearSlot(m){const o=loadRuns();if(o[m]){delete o[m];putRuns(o)}}
+const ser=r=>({k:r.qs.map(x=>x.q.k),o:r.qs.map(x=>x.ord),i:r.i,a:r.ans.map(b=>b?1:0),p:r.pick.map(v=>v==null?-1:v),st:r.streak,mx:r.mx,xp:r.xp,sc:r.scope,tm:r.timed?1:0,ms:Math.round(tlef(r)),sel:r.sel==null?-1:r.sel,t:Date.now()});
+function persist(){if(!R||R.fin||!R.qs||R.i>=R.qs.length)return;try{const o=loadRuns();o[R.mode]=ser(R);putRuns(o)}catch(e){}}
+function hyd(m,s){try{if(!s||typeof s!=='object'||!Array.isArray(s.k)||!Array.isArray(s.o)||!Array.isArray(s.a)||!Array.isArray(s.p))return null;
+  const n=s.k.length;if(!n||n>3000||s.o.length!==n)return null;const qs=[];
+  for(let j=0;j<n;j++){const q=QBY[s.k[j]],o=s.o[j];if(!q||!Array.isArray(o)||o.length!==q.o.length||new Set(o).size!==o.length||!o.every(v=>Number.isInteger(v)&&v>=0&&v<o.length))return null;qs.push({q,ord:o.slice(),ci:o.indexOf(q.a)})}
+  const i=s.i,an=s.a.length;if(!Number.isInteger(i)||i<0||i>=n||s.p.length!==an||!(an===i||(m==='quiz'&&an===i+1)))return null;
+  const pick=[];for(let j=0;j<an;j++){const v=s.p[j];if(!Number.isInteger(v)||v<0||v>=qs[j].ord.length)return null;pick.push(v)}
+  const ans=pick.map((v,j)=>v===qs[j].ci),timed=m==='test'&&s.tm===1,ms=Math.floor(+s.ms);if(timed&&!(Number.isFinite(ms)&&ms>=0&&ms<=1e8))return null;
+  return{mode:m,qs,i,right:ans.filter(Boolean).length,ans,pick,streak:nn(s.st,1e4),mx:nn(s.mx,1e4),lock:an===i+1?1:0,timed,tleft:timed?Math.ceil(ms/1000):0,tms:timed?ms:0,end:0,scope:String(s.sc||'').slice(0,80),sel:m==='test'&&Number.isInteger(s.sel)&&s.sel>=0&&s.sel<qs[i].ord.length?s.sel:null,xp:nn(s.xp,1e6)}}catch(e){return null}}
+const liveRun=m=>R&&!R.fin&&R.mode===m&&R.i<R.qs.length;
+function slot(m){const s=loadRuns()[m];if(!s)return null;const r=hyd(m,s);if(!r)clearSlot(m);return r}
+function enterRun(m){if(liveRun(m))return true;const r=slot(m);if(!r)return false;R=r;return true}
+function runInfo(m){const r=liveRun(m)?R:slot(m);return r?{at:Math.min(r.i+1,r.qs.length),n:r.qs.length,done:r.ans.length,timed:r.timed,ms:tlef(r),scope:r.scope}:null}
+function discardRun(m){if(liveRun(m)){clearInterval(tm);tm=0;R=null}clearSlot(m)}
+function saveView(y){if(BOOT)return;try{const o={v:V==='res'?'home':V,sub,cur,multi:multi.slice(0,60),cfg:{n:cfg.n,kind:cfg.kind,tm:cfg.tm},y:Math.max(0,Math.round(y==null?scrollY:y)),t:Date.now()};if(o.v==='run'&&R)o.rm=R.mode;if(sub==='flash'&&fc)o.fc={c:fc.c,o:fc.o,i:fc.i,f:fc.f};if(sq)o.sq=sq.slice(0,80);if(gq)o.gq=gq.slice(0,80);const s=JSON.stringify(o);if(s!==lastV){lastV=s;localStorage.setItem(VK,s)}}catch(e){}}
+function restoreView(){let y=0;try{const o=JSON.parse(localStorage.getItem(VK)||'null');if(!o||typeof o!=='object'||Array.isArray(o))return 0;
+  if(Array.isArray(o.multi)){const m=o.multi.filter(k=>k==='all'||KEYS.includes(k));if(m.length)multi=m.includes('all')?['all']:[...new Set(m)]}
+  if(o.cfg&&typeof o.cfg==='object'){if(['10','20','40','all'].includes(o.cfg.n))cfg.n=o.cfg.n;if(['all','s','d','a'].includes(o.cfg.kind))cfg.kind=o.cfg.kind;if(TL.some(x=>x[0]===o.cfg.tm))cfg.tm=o.cfg.tm}
+  if(typeof o.sub==='string'&&(['notes','flash','gloss','saved','search'].includes(o.sub)||(o.sub.slice(0,3)==='pg:'&&pgBy(o.sub.slice(3)))))sub=o.sub;
+  if(KEYS.includes(o.cur)||(o.cur==='all'&&sub==='gloss'))cur=o.cur;
+  if(typeof o.sq==='string')sq=o.sq.slice(0,80);if(typeof o.gq==='string')gq=o.gq.slice(0,80);
+  if(sub==='flash'&&o.fc&&o.fc.c===cur&&KEYS.includes(cur)&&Array.isArray(o.fc.o)){const L=cards(cur).length+gcards(cur).length;if(o.fc.o.length===L&&new Set(o.fc.o).size===L&&o.fc.o.every(v=>Number.isInteger(v)&&v>=0&&v<L))fc={c:cur,o:o.fc.o.slice(),i:nn(o.fc.i,1e6),f:o.fc.f?1:0}}
+  if(o.v==='run'){const m=o.rm==='test'?'test':'quiz';V=enterRun(m)?'run':m}else if(TABS.some(t=>t[0]===o.v))V=o.v;
+  y=nn(o.y,1e6)}catch(e){}return y}
+try{history.scrollRestoration='manual'}catch(e){}
+addEventListener('scroll',()=>{clearTimeout(sT);sT=setTimeout(()=>saveView(),250)},{passive:true});
+const flush=()=>{if(V==='run')persist();saveView()};
+document.addEventListener('visibilitychange',()=>{if(document.hidden){pauseClock();flush()}else resumeClock()}); /* away = paused, back = same time left */
+addEventListener('pagehide',()=>{pauseClock();flush()});addEventListener('pageshow',e=>{if(e.persisted)resumeClock()});
 
 /* ---------- run ---------- */
 function run(){
   if(!R)return go('home');if(R.i>=R.qs.length)return finish();
+  persist();if(R.timed)R.tleft=Math.ceil(tlef(R)/1000);
   const x=R.qs[R.i],q=x.q,isT=R.mode==='test',img=q.i&&IMG[q.i];
   main.innerHTML='<div class="page"><div class="card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><span><span class="tag">'+esc(chName(q.c))+'</span><span class="tag">'+KIND[q.t]+'</span>'+(q.src==='doc'?'<span class="tag">Class doc</span>':'')+'</span><span class="mut" style="font-weight:700">'+(R.i+1)+' / '+R.qs.length+(R.timed?' · <span id="tleft" role="timer" aria-label="Time left" class="'+(R.tleft<=60?'sq-low':'')+'">'+fmt(R.tleft)+'</span>':'')+'</span></div><div class="bar" style="margin:8px 0 14px"><i style="width:'+(R.i/R.qs.length*100)+'%"></i></div>'
   +(R.streak>=3&&!isT?'<div style="font-weight:800;color:var(--warn)">🔥 '+R.streak+' in a row</div>':'')
@@ -524,6 +575,7 @@ function run(){
   const bs=[...main.querySelectorAll('.opt')];
   bs.forEach(b=>b.onclick=e=>ans(+b.dataset.k,b,e));
   if(isT&&R.sel!=null)mark();
+  if(!isT&&R.ans.length>R.i){R.lock=1;const k=R.pick[R.i];bs.forEach(b=>b.disabled=true);if(bs[k])bs[k].classList.add(R.ans[R.i]?'ok':'no');bs[x.ci].classList.add('ok');fbShow(x,R.ans[R.i])} /* a restored quiz question that was already answered shows its feedback again */
 }
 function mark(){const bs=[...main.querySelectorAll('.opt')];bs.forEach((b,k)=>b.classList.toggle('sel',k===R.sel));$('#nxt').innerHTML='<button class="btn" id="nb">'+(R.i+1>=R.qs.length?'Finish test':'Next question')+'</button>';$('#nb').onclick=()=>{commitTest();run()}}
 function commitTest(){const x=R.qs[R.i],ok=R.sel===x.ci;R.ans.push(ok);R.pick.push(R.sel);if(ok){R.right++;S.cd[x.q.k]=x.q.c}S.ans++;if(ok)S.cor++;R.sel=null;R.i++;touchDay();save()}
@@ -531,21 +583,22 @@ function commitTest(){const x=R.qs[R.i],ok=R.sel===x.ci;R.ans.push(ok);R.pick.pu
 function fbHTML(q,ok,x){return '<div class="fb '+(ok?'good':'badc')+'" role="status"><b>'+(ok?['Correct!','Nailed it!','Boom!','Exactly right!'][Math.random()*4|0]:'Not quite. The answer is '+'ABCDEF'[x.ci]+': '+esc(q.o[q.a]))+'</b><div style="margin-top:6px">'+esc(q.e||('Correct answer: '+q.o[q.a]))+'</div>'+qExtras(q)+'</div>'}
 function ans(k,el,e){
   if(R.lock)return;const x=R.qs[R.i],q=x.q;
-  if(R.mode==='test'){R.sel=k;sfx.click();mark();return}
+  if(R.mode==='test'){R.sel=k;sfx.click();mark();persist();return}
   R.lock=1;const ok=k===x.ci;R.ans.push(ok);R.pick.push(k);S.ans++;recQ(q,ok);
   const bs=[...main.querySelectorAll('.opt')];bs.forEach(b=>b.disabled=true);
   const r=el.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top;
   if(ok){R.right++;S.cor++;S.cd[q.k]=q.c;R.streak++;R.mx=Math.max(R.mx,R.streak);S.best=Math.max(S.best,R.streak);el.classList.add('ok');sfx.ok();flash('g');burst(cx,cy);vib(30);const gain=10+Math.min(R.streak-1,5)*2;R.xp+=gain;addXP(gain,cx,cy)}
   else{R.streak=0;el.classList.add('no');bs[x.ci].classList.add('ok');sfx.bad();flash('r');vib([60,40,60])}
-  const nw=chk();hud();save();
-  $('#fb').innerHTML=fbHTML(q,ok,x);
-  $('#nxt').innerHTML='<button class="btn" id="nb">'+(R.i+1>=R.qs.length?'See results':'Next question')+'</button>';$('#nb').onclick=()=>{R.lock=0;R.i++;run()};$('#nb').focus();
+  const nw=chk();hud();save();persist();
+  fbShow(x,ok);
   badgeToast(nw);
 }
+function fbShow(x,ok){$('#fb').innerHTML=fbHTML(x.q,ok,x);
+  $('#nxt').innerHTML='<button class="btn" id="nb">'+(R.i+1>=R.qs.length?'See results':'Next question')+'</button>';$('#nb').onclick=()=>{R.lock=0;R.i++;run()};$('#nb').focus()}
 
 /* ---------- finish + results ---------- */
 function finish(){
-  clearInterval(tm);if(!R)return go('home');if(R.fin)return;R.fin=1;
+  clearInterval(tm);tm=0;if(!R)return go('home');if(R.fin)return;R.fin=1;clearSlot(R.mode);
   while(R.ans.length<R.qs.length){R.ans.push(false);R.pick.push(null)}
   if(R.mode==='test')R.qs.forEach((x,i)=>{if(R.pick[i]!=null)recQ(x.q,R.ans[i]===true)}); /* test answers are recorded at the end; quiz answers were recorded as they were given */
   try{const rows=R.qs.map((x,i)=>R.pick[i]!=null?{k:x.q.k,ok:R.ans[i]===true}:null).filter(Boolean);if(rows.length&&window.CSQ&&typeof window.CSQ.recordAnswers==='function')window.CSQ.recordAnswers(GUIDE.id,rows)}catch(e){}
@@ -602,7 +655,8 @@ document.addEventListener('keydown',e=>{
 main.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-rq]');if(!b)return;const q=QBY[b.dataset.rq];if(q&&hasSug()){try{window.SQ_SUGGEST.open({kind:'problem',guide:GUIDE.id,qid:q.k,qtext:String(q.q).slice(0,500)})}catch(err){}}});
 
 /* ---------- boot ---------- */
-theme();hud();render();
+theme();hud();
+const y0=restoreView();render();BOOT=0;if(y0>0){scrollTo({top:y0,left:0,behavior:'auto'});requestAnimationFrame(()=>{if(Math.abs(scrollY-y0)>2)scrollTo(0,y0)})}saveView();resumeClock();
 {const k=ksCalc();if(!S.ks||S.ks.d!==k.d||S.ks.n!==k.n||!S.ks.t)save()} /* keep the hub's Knowledge studied number fresh even if no answer is given */
 takeXfer();addEventListener('hashchange',()=>{takeXfer();pushScore();render()});hud();if(!S.name&&!S.skip)gate(false);else{document.addEventListener('pointerdown',function f(){document.removeEventListener('pointerdown',f);if(S.mus)musicOn()},{once:true})}
 })();
