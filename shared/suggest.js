@@ -201,17 +201,30 @@
       });
     });
 
-    set.append(mute, anim, bk, rs, file, conf, msg);
+    /* admin only: debug panel switch (stored on this device as sq_debug; shared/debug.js shows the panel) */
+    let dbg = null;
+    try {
+      if (window.CSQ && typeof window.CSQ.isOwner === "function" && window.CSQ.isOwner()) {
+        dbg = row("🛠", "Debug mode", "Admin only: FPS, latency and more on screen");
+        dbg.setAttribute("role", "switch"); dbg.id = "sq-debug"; dbg.append(h("span", { class: "sq-tog", "aria-hidden": "true" }));
+        dbg.addEventListener("click", () => { const on = lsGet("sq_debug") === "1"; lsSet("sq_debug", on ? "0" : "1"); window.dispatchEvent(new Event("sq-debug")); sync(); });
+      }
+    } catch (e) { dbg = null; }
+
+    set.append(mute, anim);
+    if (dbg) set.append(dbg);
+    set.append(bk, rs, file, conf, msg);
     box.append(set);
 
     function sync() {
       const p = prefs();
       mute.setAttribute("aria-checked", p.mute ? "true" : "false");
+      if (dbg) dbg.setAttribute("aria-checked", lsGet("sq_debug") === "1" ? "true" : "false");
       ms.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.anim === p.anim ? "true" : "false"));
     }
     sync();
-    const on = () => { if (!set.isConnected) { window.removeEventListener("sq-prefs", on); window.removeEventListener("storage", on); return; } sync(); };
-    window.addEventListener("sq-prefs", on); window.addEventListener("storage", on);
+    const on = () => { if (!set.isConnected) { window.removeEventListener("sq-prefs", on); window.removeEventListener("storage", on); window.removeEventListener("sq-debug", on); return; } sync(); };
+    window.addEventListener("sq-prefs", on); window.addEventListener("storage", on); window.addEventListener("sq-debug", on);
     return set;
   }
 
