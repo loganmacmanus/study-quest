@@ -29,6 +29,7 @@ function cleanS(S){S.su=typeof S.su==='string'&&/^[0-9a-f-]{36}$/.test(S.su)?S.s
   S.theme=S.theme==='dark'||S.theme==='light'?S.theme:null;S.snd=S.snd?1:0;S.mus=S.mus?1:0;S.skip=S.skip?1:0;
   S.acc=typeof S.acc==='string'&&/^[a-z]{2,10}$/.test(S.acc)?S.acc:'cyber';
   S.known=obj(S.known);S.cd=obj(S.cd);S.badges=obj(S.badges);delete S.rivals;
+  {const o=obj(S.tmd),t={};Object.keys(o).slice(0,20).forEach(k=>{if(/^[a-z0-9]{8,16}$/.test(k))t[k]=num(o[k],1e8)});S.tmd=t} /* active study seconds per device */
   {const o=obj(S.px),px={};Object.keys(o).slice(0,500).forEach(k=>{if(k.length<=40&&o[k])px[k]=1});S.px=px}
   /* per-question records (qr), flashcard backs viewed (fv), study days (dd), knowledge-studied summary (ks): see contract C2 */
   {const o=obj(S.qr),q={};let n=0;for(const k of Object.keys(o)){if(n>=3000)break;const v=o[k];if(!/^(s|ga|gd)\d{1,5}$/.test(k)||!v||typeof v!=='object')continue;q[k]={r:num(v.r,9999),w:num(v.w,9999),l:v.l?1:0,s:num(v.s,9999)};n++}S.qr=q}
@@ -224,7 +225,8 @@ function toast(html,ms){const t=document.createElement('div');t.className='toast
   const cx=cv.getContext&&cv.getContext('2d');if(!cx)return;
   let W=0,H=0,dpr=1,N=[],P=[],last=0,raf=0;
   function size(){dpr=Math.min(devicePixelRatio||1,1.5);W=innerWidth;H=innerHeight;cv.width=W*dpr;cv.height=H*dpr;cx.setTransform(dpr,0,0,dpr,0,0);const n=Math.max(22,Math.min(60,Math.round(W*H/26000)));N=[];for(let i=0;i<n;i++)N.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.22,vy:(Math.random()-.5)*.22})}
-  const col=()=>{const v=getComputedStyle(document.documentElement).getPropertyValue('--net').trim()||'34,211,238';return v};
+  let colC=null;const col=()=>{if(colC===null)colC=getComputedStyle(document.documentElement).getPropertyValue('--net').trim()||'34,211,238';return colC}; /* read once, again only after a theme change */
+  try{new MutationObserver(()=>{colC=null}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme','style','class']})}catch(e){}
   function draw(t){
     raf=requestAnimationFrame(draw);if(t-last<33)return;last=t;
     const c=col(),dark=document.documentElement.dataset.theme==='dark'||(!document.documentElement.dataset.theme&&matchMedia('(prefers-color-scheme: dark)').matches);
@@ -234,9 +236,13 @@ function toast(html,ms){const t=document.createElement('div');t.className='toast
     const L=Math.min(150,Math.max(100,W/8));
     for(const a of N){a.x+=a.vx;a.y+=a.vy;if(a.x<-10)a.x=W+10;else if(a.x>W+10)a.x=-10;if(a.y<-10)a.y=H+10;else if(a.y>H+10)a.y=-10}
     cx.lineWidth=1;
-    for(let i=0;i<N.length;i++){const a=N[i];for(let j=i+1;j<N.length;j++){const b=N[j],dx=a.x-b.x,dy=a.y-b.y,d=dx*dx+dy*dy;if(d<L*L){const al=(1-Math.sqrt(d)/L)*(dark?.4:.3);cx.strokeStyle='rgba('+c+','+al+')';cx.beginPath();cx.moveTo(a.x,a.y);cx.lineTo(b.x,b.y);cx.stroke();
+    /* lines are grouped into 16 strength levels and drawn as 16 paths (instead of one stroke per line); dots as one path */
+    const LV=16,paths=[];for(let k=0;k<LV;k++)paths.push(new Path2D());const dots=new Path2D();
+    for(let i=0;i<N.length;i++){const a=N[i];for(let j=i+1;j<N.length;j++){const b=N[j],dx=a.x-b.x,dy=a.y-b.y,d=dx*dx+dy*dy;if(d<L*L){const k=Math.min(LV-1,Math.floor((1-Math.sqrt(d)/L)*LV));paths[k].moveTo(a.x,a.y);paths[k].lineTo(b.x,b.y);
       if(Math.random()<.0009&&P.length<14)P.push({a,b,p:0,s:.012+Math.random()*.01})}}
-      cx.fillStyle='rgba('+c+','+(dark?.7:.5)+')';cx.beginPath();cx.arc(a.x,a.y,1.8,0,6.283);cx.fill()}
+      dots.moveTo(a.x+1.8,a.y);dots.arc(a.x,a.y,1.8,0,6.283)}
+    for(let k=0;k<LV;k++){cx.strokeStyle='rgba('+c+','+((k+.5)/LV*(dark?.4:.3)).toFixed(3)+')';cx.stroke(paths[k])}
+    cx.fillStyle='rgba('+c+','+(dark?.7:.5)+')';cx.fill(dots);
     for(let i=P.length-1;i>=0;i--){const q=P[i];q.p+=q.s;if(q.p>=1){P.splice(i,1);continue}const x=q.a.x+(q.b.x-q.a.x)*q.p,y=q.a.y+(q.b.y-q.a.y)*q.p;cx.fillStyle='rgba('+c+',.95)';cx.shadowColor='rgba('+c+',1)';cx.shadowBlur=10;cx.beginPath();cx.arc(x,y,2.6,0,6.283);cx.fill();cx.shadowBlur=0}
   }
   size();addEventListener('resize',()=>{size()});
@@ -258,13 +264,16 @@ let DB=null,UID=null,BOARD=null,BOARDERR='',WRITEERR='',lastPushed='',pushT=0,pu
     }else boardWait=false;
   }catch(e){boardWait=false}
 })();
-function cleanRow(id,d){if(!d||typeof d!=='object')return null;const n=typeof d.n==='string'&&/^[A-Z0-9]{3}$/.test(d.n)&&!BAD.includes(d.n)?d.n:null;if(!n)return null;const num=(v,max)=>{v=Math.floor(+v);return Number.isFinite(v)&&v>=0?Math.min(v,max):0};return{id:String(id).slice(0,128),n,xp:num(d.xp,1e7),lv:num(d.lv,1e5),best:num(d.best,100),bq:num(d.bq,100)}}
+function cleanRow(id,d){if(!d||typeof d!=='object')return null;const n=typeof d.n==='string'&&/^[A-Z0-9]{3}$/.test(d.n)&&!BAD.includes(d.n)?d.n:null;if(!n)return null;const num=(v,max)=>{v=Math.floor(+v);return Number.isFinite(v)&&v>=0?Math.min(v,max):0};return{id:String(id).slice(0,128),n,xp:num(d.xp,1e7),lv:num(d.lv,1e5),best:num(d.best,100),bq:num(d.bq,100),ks:num(d.ks,100),acc:num(d.acc,100),tm:num(d.tm,1e6)}}
 const taken=n=>!!(BOARD&&BOARD.some(r=>r.n===n&&r.id!==UID));
-function payload(){return{n:S.name,xp:S.xp,lv:lvl(),best:S.bestTest|0,bq:S.bestQuiz|0,t:Date.now()}}
+const tmMin=()=>Math.floor(Object.values(S.tmd||{}).reduce((a,b)=>a+(b|0),0)/60);
+const ksPct=()=>{try{const k=kstat();return k.n?Math.round(k.d/k.n*100):0}catch(e){return 0}};
+const accPct=()=>S.ans>=20?Math.min(100,Math.round(S.cor/S.ans*100)):0; /* accuracy only counts after 20 answers */
+function payload(){return{n:S.name,xp:S.xp,lv:lvl(),best:S.bestTest|0,bq:S.bestQuiz|0,ks:ksPct(),acc:accPct(),tm:tmMin(),t:Date.now()}}
 function pushScore(){
   if(!DB||!UID||!/^[A-Z0-9]{3}$/.test(S.name))return;clearTimeout(pushT);if(BOARD===null&&boardWait){pushT=setTimeout(pushScore,1500);return}
   pushT=setTimeout(async()=>{
-    const p=payload(),key=[p.n,p.xp,p.best,p.bq].join('|');if(key===lastPushed||pushing)return;pushing=true;
+    const p=payload(),key=[p.n,p.xp,p.best,p.bq,p.ks,p.acc,p.tm].join('|');if(key===lastPushed||pushing)return;pushing=true;
     try{await DB.collection('scores').doc(UID).set(p);lastPushed=key;WRITEERR=''}catch(e){WRITEERR=(e&&e.code==='not_granted')?'read-only':'failed';if(e&&e.code==='taken'){WRITEERR='';toast(esc(S.name)+' is already taken. Pick another callsign.',3500);gate(true)}}
     pushing=false;if(V==='ranks')render();
   },1200);
@@ -517,7 +526,7 @@ function start(m,custom,label){
   const qs=p.map(q=>{const ord=shuffle(q.o.map((t,i)=>i));return{q,ord,ci:ord.indexOf(q.a)}});
   persist(); /* a live run of the other mode is kept (a live run of this mode is replaced below) */
   R={mode:m,qs,i:0,right:0,ans:[],pick:[],streak:0,mx:0,lock:0,timed:m==='test'&&cfg.tm!=='0',tleft:cfg.tm==='q'?qs.length*45:/^\d+$/.test(cfg.tm)?+cfg.tm*60:0,scope:label||(multi.includes('all')?'All '+UNITS().toLowerCase():multi.map(chName).join(', ')),sel:null,xp:0,end:0};
-  R.tms=R.tleft*1000;V='run';clearInterval(tm);tm=0;
+  R.t0=R.tleft;R.tms=R.tleft*1000;V='run';clearInterval(tm);tm=0;
   render();scrollTo(0,0);resumeClock();saveView(0);
 }
 /* test clock: counts down to a fixed deadline (so a slow or background tab cannot drift); at 0 the test finishes by itself */
@@ -570,7 +579,7 @@ addEventListener('pagehide',()=>{pauseClock();flush()});addEventListener('pagesh
    Both devices are merged so nothing is lost (rules in SYNC-PLAN.md): sets are unioned, counters take the max, a question record with more answers wins,
    bookmarks and unfinished runs follow whichever device changed last (S.bmt, run.t) and a finished/discarded run leaves a tombstone (S.rx) so it cannot come back.
    Not synced (per device): theme, sound, music, accent, skip, the _view key and sq_prefs. Whatever the server returns is untrusted and is validated like local storage. */
-const SYK=['known','fv','qr','dd','bm','cd','badges','px','xp','best','bestTest','bestQuiz','ans','cor','qs','hist','name'],RUNM=['quiz','test'];
+const SYK=['known','fv','qr','dd','bm','cd','badges','px','xp','best','bestTest','bestQuiz','ans','cor','qs','hist','name','tmd'],RUNM=['quiz','test'];
 const SY={on:!!(window.CSQ&&window.CSQ.progress&&window.CSQ.session&&/^[a-z0-9-]{2,32}$/.test(String(GUIDE.id))),ok:null,at:0,pulled:0,timer:0,busy:null,again:0,fail:0,ka:0};
 const hop=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
 const stab=v=>JSON.stringify(v,(k,x)=>x&&typeof x==='object'&&!Array.isArray(x)?Object.keys(x).sort().reduce((a,c)=>(a[c]=x[c],a),{}):x);
@@ -600,6 +609,7 @@ function syncMerge(R){const before=sigOf(syncData());
   ['xp','best','bestTest','bestQuiz','ans','cor','qs'].forEach(k=>{S[k]=Math.max(S[k]|0,R[k]|0)});
   {const seen=new Set(),h=[];S.hist.concat(R.hist).forEach(x=>{const id=x.t?String(x.t):stab(x);if(!seen.has(id)){seen.add(id);h.push(x)}});S.hist=h.sort((a,b)=>a.t-b.t).slice(-200)}
   if(!S.name&&R.name)S.name=R.name;
+  {const t=Object.assign({},S.tmd);Object.keys(R.tmd||{}).forEach(k=>{if(Object.keys(t).length<20||hop(t,k))t[k]=Math.max(t[k]|0,R.tmd[k]|0)});S.tmd=t} /* each device's time counter: keep the larger */
   if(R.bmt>S.bmt||(!R.bmt&&!S.bmt)){if(R.bmt>S.bmt){S.bm=Object.assign({},R.bm);S.bmt=R.bmt}else S.bm=un(S.bm,R.bm)} /* newest bookmark change wins the whole list; with no times on either side nothing is dropped */
   S.rx={quiz:Math.max(S.rx.quiz,R.rx.quiz),test:Math.max(S.rx.test,R.rx.test)};
   {const cur=loadRuns(),L=localRuns(),out={};RUNM.forEach(m=>{if(liveRun(m)){if(cur[m])out[m]=cur[m];return}
@@ -652,7 +662,8 @@ function run(){
   +(R.streak>=3&&!isT?'<div style="font-weight:800;color:var(--warn)">🔥 '+R.streak+' in a row</div>':'')
   +'<h3 style="font-size:19px;line-height:1.4;margin-bottom:10px">'+esc(q.q)+'</h3>'+(img?fig(img):'')
   +x.ord.map((oi,k)=>'<button class="opt" data-k="'+k+'" style="animation-delay:'+k*.05+'s"><i>'+'ABCDEF'[k]+'</i><span>'+esc(q.o[oi])+'</span></button>').join('')
-  +'<div id="fb"></div><div id="nxt" style="margin-top:12px"></div><div class="mut keyhint">Keyboard: 1–'+x.ord.length+' or A–'+'ABCDEF'[x.ord.length-1]+' to answer · Enter for next</div></div></div>';
+  +'<div id="fb"></div><div id="nxt" style="margin-top:12px"></div><div class="mut keyhint">Keyboard: 1–'+x.ord.length+' or A–'+'ABCDEF'[x.ord.length-1]+' to answer · Enter for next</div><div class="sq-row" data-ract style="margin-top:14px;justify-content:center"><button type="button" class="btn g s" id="rend">⏹ End early</button><button type="button" class="btn g s" id="rres">↺ Restart</button></div></div></div>';
+  {const a=$('#rend'),b=$('#rres');if(a)a.onclick=()=>runConfirm('end');if(b)b.onclick=()=>runConfirm('restart')}
   const bs=[...main.querySelectorAll('.opt')];
   bs.forEach(b=>b.onclick=e=>ans(+b.dataset.k,b,e));
   if(isT&&R.sel!=null)mark();
@@ -678,6 +689,36 @@ function fbShow(x,ok){$('#fb').innerHTML=fbHTML(x.q,ok,x);
   $('#nxt').innerHTML='<button class="btn" id="nb">'+(R.i+1>=R.qs.length?'See results':'Next question')+'</button>';$('#nb').onclick=()=>{R.lock=0;R.i++;run()};$('#nb').focus()}
 
 /* ---------- finish + results ---------- */
+/* End early / Restart, each confirmed in a pop-up (the shared accessible modal; the test clock pauses while it is open) */
+function runConfirm(kind){
+  if(!R||R.fin)return;const sh=window.SQ_SHELL;if(!sh||!sh.modal)return kind==='end'?endEarly():restartRun();
+  const isT=R.mode==='test',w=isT?'test':'quiz',n=R.qs.length,done=R.ans.length,was=V;let acted=false;pauseClock();persist();
+  const t0=R.timed?(R.t0||(cfg.tm==='q'?n*45:/^\d+$/.test(cfg.tm)?+cfg.tm*60:0)):0;
+  const md=sh.modal({title:kind==='end'?'End this '+w+' early?':'Restart this '+w+'?',onClose:()=>{if(!acted&&R&&V===was)resumeClock()}});
+  const msg=kind==='end'
+    ?(done?'You have answered '+done+' of '+n+' questions. Your score will count only '+(done===1?'that one':'those '+done)+'. Unanswered questions are not marked wrong, and this '+w+' will not count toward your best score.':'You have not answered any questions yet, so nothing will be graded. You will go back to the '+w+' setup.')
+    :('All '+n+' questions start over in a new order and your '+done+' answer'+(done===1?'':'s')+' so far will be cleared.'+(R.timed&&t0?' The clock goes back to '+fmt(t0)+'.':'')+(!isT&&R.xp?' XP you already earned stays.':''));
+  const p=document.createElement('p');p.className='sq-mut';p.textContent=msg;
+  const row=document.createElement('div');row.style.cssText='display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px';
+  const no=document.createElement('button');no.type='button';no.className='sq-b';no.textContent=kind==='end'?'Keep going':'Cancel';
+  const yes=document.createElement('button');yes.type='button';yes.className='sq-b pri';yes.id='rconf';yes.textContent=kind==='end'?(done?'End and see results':'End '+w):'Restart';
+  row.append(no,yes);md.dlg.append(p,row);
+  no.onclick=()=>md.close();yes.onclick=()=>{acted=true;md.close();if(kind==='end')endEarly();else restartRun()};
+  no.focus();
+}
+function endEarly(){
+  if(!R||R.fin)return;const m=R.mode,done=R.ans.length;
+  if(!done){discardRun(m);V=m;render();scrollTo(0,0);saveView(0);toast('Ended. Nothing was graded.',2200);return}
+  R.n0=R.qs.length;R.early=1;R.sel=null;R.qs=R.qs.slice(0,done);R.pick=R.pick.slice(0,done);R.i=done;finish();
+}
+function restartRun(){
+  if(!R||R.fin)return;const m=R.mode,qs=R.qs.map(x=>x.q),sc=R.scope,timed=R.timed,n=R.qs.length;
+  const t0=timed?(R.t0||(cfg.tm==='q'?n*45:/^\d+$/.test(cfg.tm)?+cfg.tm*60:0)):0;
+  discardRun(m);if(S.rx)S.rx[m]=Date.now()-1000; /* the old run is gone everywhere; the new one (saved just after) is newer than the marker */
+  start(m,qs,sc);if(!R)return;
+  if(R.timed!==!!(timed&&t0)||(timed&&R.t0!==t0)){pauseClock();R.timed=!!(timed&&t0);R.tleft=t0;R.t0=t0;R.tms=t0*1000;R.end=0;render();resumeClock()}
+  save();toast('Restarted: '+n+' questions in a new order',2200);
+}
 function finish(){
   clearInterval(tm);tm=0;if(!R)return go('home');if(R.fin)return;R.fin=1;clearSlot(R.mode);tomb(R.mode);
   while(R.ans.length<R.qs.length){R.ans.push(false);R.pick.push(null)}
@@ -685,8 +726,8 @@ function finish(){
   try{const rows=R.qs.map((x,i)=>R.pick[i]!=null?{k:x.q.k,ok:R.ans[i]===true}:null).filter(Boolean);if(rows.length&&window.CSQ&&typeof window.CSQ.recordAnswers==='function')window.CSQ.recordAnswers(GUIDE.id,rows)}catch(e){}
   const n=R.qs.length,pct=Math.round(R.right/n*100);R.pct=pct;
   let bonus=Math.round(pct/2)+(pct>=80?25:0)+(R.mode==='test'?R.right*4:0);R.bonus=bonus;
-  const prevBest=R.mode==='test'?S.bestTest:S.bestQuiz;R.newBest=pct>prevBest&&n>=5;
-  if(R.mode==='test'){if(n>=5)S.bestTest=Math.max(S.bestTest,pct)}else if(n>=5)S.bestQuiz=Math.max(S.bestQuiz,pct);
+  const prevBest=R.mode==='test'?S.bestTest:S.bestQuiz;R.newBest=!R.early&&pct>prevBest&&n>=5;
+  if(!R.early){if(R.mode==='test'){if(n>=5)S.bestTest=Math.max(S.bestTest,pct)}else if(n>=5)S.bestQuiz=Math.max(S.bestQuiz,pct)}
   S.hist.push({pct,mode:R.mode,scope:R.scope,n,t:Date.now()});S.hist=S.hist.slice(-60);
   R.badges=chk();save();
   V='res';addXP(bonus);pushScore();render();
@@ -698,7 +739,7 @@ function res(){
   const miss=m.qs.map((x,i)=>({x,i})).filter(o=>m.ans[o.i]!==true);
   const by={};m.qs.forEach((x,i)=>{const c=x.q.c;by[c]=by[c]||[0,0];by[c][1]++;if(m.ans[i])by[c][0]++});
   const weak=Object.keys(by).filter(c=>by[c][0]/by[c][1]<WEAK).sort((a,b)=>by[a][0]/by[a][1]-by[b][0]/by[b][1]);
-  main.innerHTML='<div class="page"><div class="card" style="text-align:center"><div class="mut" style="font-weight:800;letter-spacing:.1em">'+(m.mode==='test'?'TEST COMPLETE':'QUIZ COMPLETE')+'</div><div class="big" id="cnt">0%</div><div>'+m.right+' of '+m.qs.length+' correct'+(m.mx>1?' · best streak '+m.mx:'')+'</div><div class="mut">+'+m.bonus+' bonus XP'+(m.newBest?' · 🏅 new personal best!':'')+'</div><div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn" id="again">Go again</button>'+(miss.length?'<button class="btn g" id="retry">Retry missed ('+miss.length+')</button>':'')+'<button class="btn g" id="rk">🏆 Leaderboard</button></div></div>'
+  main.innerHTML='<div class="page"><div class="card" style="text-align:center"><div class="mut" style="font-weight:800;letter-spacing:.1em">'+(m.mode==='test'?'TEST COMPLETE':'QUIZ COMPLETE')+'</div><div class="big" id="cnt">0%</div><div>'+m.right+' of '+m.qs.length+' correct'+(m.mx>1?' · best streak '+m.mx:'')+'</div>'+(m.early?'<div class="mut">Ended early after '+m.qs.length+' of '+m.n0+' questions</div>':'')+'<div class="mut">+'+m.bonus+' bonus XP'+(m.newBest?' · 🏅 new personal best!':'')+'</div><div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn" id="again">Go again</button>'+(miss.length?'<button class="btn g" id="retry">Retry missed ('+miss.length+')</button>':'')+'<button class="btn g" id="rk">🏆 Leaderboard</button></div></div>'
   +(weak.length?'<div class="card sq-weak" id="wkc"><h3>Weak spots</h3><div class="mut">Under '+Math.round(WEAK*100)+'% in this run:</div><ul>'+weak.map(c=>'<li><b>'+esc(CH[c][1])+' '+esc(chName(c))+'</b> · '+esc(chSub(c))+' · '+by[c][0]+'/'+by[c][1]+' ('+Math.round(100*by[c][0]/by[c][1])+'%)</li>').join('')+'</ul><button class="btn s" id="wkp">Practice weak spots</button></div>':'')
   +'<div class="card"><h3>By chapter</h3>'+Object.keys(by).map(c=>'<div style="margin:8px 0"><div style="display:flex;justify-content:space-between"><span>'+esc(CH[c][1])+' '+esc(CH[c][0])+'</span><b>'+by[c][0]+'/'+by[c][1]+'</b></div><div class="bar"><i style="width:'+by[c][0]/by[c][1]*100+'%"></i></div></div>').join('')+'</div>'
   +'<div class="card"><h3>Review '+(miss.length?'missed questions':'')+'</h3>'+(miss.length?miss.map(o=>{const q=o.x.q,pk=m.pick[o.i];return '<div class="note"><b>'+esc(q.q)+'</b><div style="margin-top:6px">Your answer: <span style="color:var(--bad);font-weight:700">'+(pk==null?'(no answer)':esc(q.o[o.x.ord[pk]]))+'</span></div><div>Correct: <span style="color:var(--ok);font-weight:700">'+esc(q.o[q.a])+'</span></div><div class="mut" style="margin-top:4px">'+esc(q.e)+'</div>'+qExtras(q)+'</div>'}).join(''):'<div>Perfect. Nothing to review.</div>')+'</div></div>';
@@ -707,25 +748,41 @@ function res(){
 }
 
 /* ---------- ranks ---------- */
+/* overall score (0-100): 40% best test + 30% Knowledge studied + 20% quiz accuracy (after 20 answers) + 10% time studied (full marks at 10 hours) */
+const bScore=r=>Math.round(.4*r.best+.3*r.ks+.2*r.acc+Math.min(r.tm,600)/60);
+const fmtTm=m=>m<60?m+'m':Math.floor(m/60)+'h '+(m%60)+'m';
+let RKS='score';
+const RKC=[['score','Score'],['best','Best test'],['ks','Knowledge'],['acc','Accuracy'],['tm','Time'],['xp','XP']];
 function ranks(){
-  const me={n:S.name,xp:S.xp,lv:lvl(),best:S.bestTest|0,me:1};
+  const me={n:S.name,xp:S.xp,lv:lvl(),best:S.bestTest|0,ks:ksPct(),acc:accPct(),tm:tmMin(),me:1};
   let rows=[],src='';
-  if(BOARD&&DB){rows=BOARD.map(r=>({n:r.n,xp:r.xp,lv:r.lv,best:r.best,me:r.id===UID}));if(!rows.some(r=>r.me))rows.push(me);src='global'}
+  const cl=(v,mx)=>{v=Math.floor(+v);return Number.isFinite(v)&&v>=0?Math.min(v,mx):0};
+  if(BOARD&&DB){rows=BOARD.map(r=>({n:r.n,xp:cl(r.xp,1e7),lv:cl(r.lv,1e5),best:cl(r.best,100),ks:cl(r.ks,100),acc:cl(r.acc,100),tm:cl(r.tm,1e6),me:r.id===UID}));
+    const mine=rows.find(r=>r.me);if(mine)['xp','lv','best','ks','acc','tm'].forEach(k=>{mine[k]=k==='ks'||k==='acc'?me[k]:Math.max(mine[k],me[k])});else rows.push(me);src='global'} /* your own row always shows your live numbers */
   else rows=[me];
-  {const by={};rows.forEach(r=>{const k=r.n,o=by[k];if(!o)by[k]=Object.assign({},r);else{o.xp=Math.max(o.xp,r.xp);o.lv=Math.max(o.lv,r.lv);o.best=Math.max(o.best,r.best);o.me=o.me||r.me}});rows=Object.values(by)}
-  rows.sort((a,b)=>b.best-a.best||b.xp-a.xp);
-  const status=DB&&UID?(boardWait?'Connecting to the shared board…':BOARDERR?esc(BOARDERR):WRITEERR==='read-only'?'You can see the shared board, but this account may not post scores (viewer access). Your scores still count on your own device.':WRITEERR==='failed'?'Your latest score could not be posted. It will retry on your next result.':'Live: everyone who opens this page appears here with their best test score.'):'This downloaded copy cannot reach the shared board by itself. Tap the button below and your score is posted for you.';
-  main.innerHTML='<div class="page"><div class="card"><h2>🏆 Leaderboard</h2><div class="mut" style="margin-bottom:8px">'+status+'</div><div class="scroll"><table class="lb"><thead><tr><th>#</th><th>Callsign</th><th>Best test</th><th>Level</th><th>XP</th></tr></thead><tbody>'+rows.slice(0,25).map((r,i)=>'<tr class="'+(r.me?'me':'')+'"><td>'+(i<3?['🥇','🥈','🥉'][i]:i+1)+'</td><td class="nm">'+esc(r.n)+(r.me?' <span class="tag">you</span>':'')+'</td><td>'+r.best+'%</td><td>'+r.lv+'</td><td>'+r.xp+'</td></tr>').join('')+'</tbody></table></div></div>'
+  {const by={};rows.forEach(r=>{const k=r.n,o=by[k];if(!o)by[k]=Object.assign({},r);else{['xp','lv','best','ks','acc','tm'].forEach(f=>o[f]=Math.max(o[f],r[f]));o.me=o.me||r.me}});rows=Object.values(by)}
+  rows.forEach(r=>r.score=bScore(r));
+  const key=RKC.some(c=>c[0]===RKS)?RKS:'score';
+  rows.sort((a,b)=>b[key]-a[key]||b.score-a.score||b.xp-a.xp);
+  const status=DB&&UID?(boardWait?'Connecting to the shared board…':BOARDERR?esc(BOARDERR):WRITEERR==='read-only'?'You can see the shared board, but this account may not post scores (viewer access). Your scores still count on your own device.':WRITEERR==='failed'?'Your latest score could not be posted. It will retry on your next result.':'Live: everyone who studies this guide appears here.'):'This downloaded copy cannot reach the shared board by itself. Tap the button below and your score is posted for you.';
+  main.innerHTML='<div class="page"><div class="card"><h2>🏆 Leaderboard</h2><div class="mut" style="margin-bottom:8px">'+status+'</div><div class="mut" style="font-size:13px;margin-bottom:8px" id="rkhow">Score = 40% best test + 30% Knowledge studied + 20% quiz accuracy (after 20 answers) + 10% time studied (full marks at 10 hours). Time counts only while a guide is open and in use. Tap a column to sort by it.</div><div class="scroll"><table class="lb"><thead><tr><th scope="col">#</th><th scope="col">Callsign</th>'+RKC.map(c=>'<th scope="col" aria-sort="'+(c[0]===key?'descending':'none')+'"><button type="button" class="rks'+(c[0]===key?' on':'')+'" data-rs="'+c[0]+'">'+c[1]+(c[0]===key?' ▾':'')+'</button></th>').join('')+'</tr></thead><tbody>'+rows.slice(0,25).map((r,i)=>'<tr class="'+(r.me?'me':'')+'"><td>'+(i<3?['🥇','🥈','🥉'][i]:i+1)+'</td><td class="nm">'+esc(r.n)+(r.me?' <span class="tag">you</span>':'')+'</td><td><b>'+r.score+'</b></td><td>'+r.best+'%</td><td>'+r.ks+'%</td><td>'+(r.acc?r.acc+'%':'–')+'</td><td>'+fmtTm(r.tm)+'</td><td>'+r.xp+'</td></tr>').join('')+'</tbody></table></div></div>'
   +(!S.name?'<div class="card"><h3>Join the leaderboard</h3><div class="mut" style="margin-bottom:10px">Pick a 3 character callsign (for example ABC) to appear on the global board.</div><button class="btn s" id="setnm">Choose callsign</button></div>':(!(DB&&UID)?'<div class="card"><h3>Global board</h3><div class="mut">The shared board is not connected right now. Reload the page to try again.</div></div>':''))+'<div class="card"><h3>Your history</h3>'+(S.hist.length?[...S.hist].reverse().slice(0,10).map(h=>'<div style="display:flex;justify-content:space-between;padding:4px 0;gap:8px"><span>'+(h.mode==='test'?'🎯':'⚡')+' '+esc(h.scope)+'</span><b>'+h.pct+'%</b></div>').join(''):'<div class="mut">No runs yet. Finish a quiz or test to appear here.</div>')+'</div></div>';
   const sn=$('#setnm');if(sn)sn.onclick=()=>gate(false);
+  main.querySelectorAll('[data-rs]').forEach(b=>b.onclick=()=>{RKS=b.dataset.rs;render();const f=main.querySelector('[data-rs="'+RKS+'"]');if(f)f.focus()});
 }
+
+/* ---------- time studied: counts 15 s at a time only while this page is visible and was used in the last minute ---------- */
+{let act=Date.now(),ticks=0;const DEV=(()=>{try{let d=localStorage.getItem('sq_dev');if(!/^[a-z0-9]{12}$/.test(d||'')){d=Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>'abcdefghijklmnopqrstuvwxyz0123456789'[b%36]).join('');localStorage.setItem('sq_dev',d)}return d}catch(e){return 'nostorage00'}})();
+  const poke=()=>{act=Date.now()};['pointerdown','keydown','wheel','touchstart','scroll'].forEach(ev=>addEventListener(ev,poke,{passive:true,capture:true}));
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)act=Date.now()});
+  setInterval(()=>{if(document.hidden||Date.now()-act>60000)return;S.tmd=S.tmd||{};S.tmd[DEV]=Math.min(1e8,(S.tmd[DEV]|0)+15);if(++ticks%4===0){save();pushScore();if(V==='ranks')render()}},15000);}
 
 /* ---------- keyboard: 1-6 or A-F answers, Enter / Space / → goes on ---------- */
 document.addEventListener('keydown',e=>{
   if(e.ctrlKey||e.metaKey||e.altKey||e.repeat)return;
   if(V!=='run'||!R)return;
   if(document.querySelector('.ov.on')||$('#palpop'))return;
-  const t=e.target;if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable||(t.closest&&t.closest('[role="dialog"],[data-rq],[data-bm]'))))return;
+  const t=e.target;if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable||(t.closest&&t.closest('[role="dialog"],[data-rq],[data-bm],[data-ract]'))))return;
   const k=e.key.toLowerCase();let i=-1;
   if(/^[1-6]$/.test(k))i=+k-1;else if(/^[a-f]$/.test(k))i=k.charCodeAt(0)-97;
   if(i>=0){const bs=[...main.querySelectorAll('.opt')];const b=bs[i];if(b&&!b.disabled){e.preventDefault();b.click()}return}

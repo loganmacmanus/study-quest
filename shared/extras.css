@@ -76,3 +76,10 @@ html.sq-anim-off .sq-dlg{animation:none}html.sq-anim-off #sq-suggest,html.sq-ani
 #acct.navd .sq-b.pri{color:var(--bt)}
 #acct.navd .sq-conf,#acct.navd .sq-msg{font-size:14px;color:var(--tx)}
 #acct.navd .sq-msg.bad{color:var(--bad)}#acct.navd .sq-msg.ok{color:var(--ok)}
+/* leaderboard: sortable column headers (buttons that look like the header text) */
+.lb th button.rks{appearance:none;background:none;border:0;margin:0;padding:4px 2px;min-height:32px;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;cursor:pointer;white-space:nowrap;border-radius:6px}
+.lb th button.rks:hover{color:var(--tx)}
+.lb th button.rks.on{color:var(--tx);font-weight:800}
+.lb th button.rks:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
+.lb td,.lb th{white-space:nowrap}
+

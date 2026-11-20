@@ -44,7 +44,7 @@
     // optional Proofs feature: only guides whose content has an "X" object load proofs.js (before app.js)
     const hasX = data.X && typeof data.X === "object" && !Array.isArray(data.X);
     if (hasX) window.X = data.X;
-    const s = document.createElement("script"); s.src = "../shared/app.js?v=18"; s.defer = true;
+    const s = document.createElement("script"); s.src = "../shared/app.js?v=20"; s.defer = true;
     s.onload = buildNav;
     if (hasX) {
       const p = document.createElement("script"); p.src = "../shared/proofs.js?v=2"; p.defer = true;

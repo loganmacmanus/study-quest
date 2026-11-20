@@ -18,7 +18,11 @@
     const d = G().defaultTheme;
     return d ? d === "dark" : mq("(prefers-color-scheme: dark)").matches;
   };
-  const netColor = (fallback) => getComputedStyle(document.documentElement).getPropertyValue("--net").trim() || fallback;
+  /* the background colour is read once and again only when the theme changes (reading styles every frame is slow on phones) */
+  let netC = null;
+  const netColor = (fallback) => { if (netC === null) netC = getComputedStyle(document.documentElement).getPropertyValue("--net").trim(); return netC || fallback; };
+  try { new MutationObserver(() => { netC = null; }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "style", "class"] }); } catch (e) { /* older browsers: colour stays as first read */ }
+  addEventListener("sq-prefs", () => { netC = null; });
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const hsl2rgb = (h, s, l) => {
     s /= 100; l /= 100;
