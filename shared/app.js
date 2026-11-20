@@ -280,12 +280,8 @@ function pushScore(){
 }
 const hash=s=>{let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))>>>0;return h.toString(36).toUpperCase().padStart(4,'0').slice(-4)};
 /* a downloaded copy hands its score to the online board through the link's #hash (letters, digits, hyphens only) */
-function takeXfer(){try{const m=String(location.hash||'').match(/^#sync-([A-Z0-9]{3})-(\d{1,7})-(\d{1,3})-(\d{1,3})-([0-9A-Z]{4})$/);if(!m)return;
-  const b=[XP,m[1],m[2],m[3],m[4]];try{history.replaceState(null,'',location.pathname+location.search)}catch(e){location.hash=''}
-  if(hash(b.join('-'))!==m[5]||BAD.includes(m[1]))return;
-  if(!S.name&&!taken(m[1])){S.name=m[1];S.skip=0}
-  if(S.name===m[1]){S.xp=Math.max(S.xp,Math.min(+m[2],1e7));S.bestTest=Math.max(S.bestTest,Math.min(+m[3],100));S.bestQuiz=Math.max(S.bestQuiz,Math.min(+m[4],100));save();setTimeout(()=>toast('✅ Score from your downloaded copy added to the global board',3200),600)}
-}catch(e){}}
+/* old downloaded-copy #sync-… links are no longer honoured: their checksum had no secret, so anyone could forge a score. Just clear the hash. */
+function takeXfer(){try{if(!/^#sync-/.test(String(location.hash||'')))return;try{history.replaceState(null,'',location.pathname+location.search)}catch(e){location.hash=''}}catch(e){}}
 const BAD=['ASS','SEX','FUK','FUC','DIK','TIT','CUM','KKK','NZI','FAG','NIG','CUN','FCK','WTF'];
 
 /* ---------- name gate (mandatory 3 characters) ---------- */
@@ -752,7 +748,7 @@ function res(){
 const bScore=r=>Math.round(.4*r.best+.3*r.ks+.2*r.acc+Math.min(r.tm,600)/60);
 const fmtTm=m=>m<60?m+'m':Math.floor(m/60)+'h '+(m%60)+'m';
 let RKS='score';
-const RKC=[['score','Score'],['best','Best test'],['ks','Knowledge'],['acc','Accuracy'],['tm','Time'],['xp','XP']];
+const RKC=[['score','Score'],['best','Best test'],['ks','Knowledge'],['acc','Accuracy'],['tm','Time'],['lv','Level'],['xp','XP']];
 function ranks(){
   const me={n:S.name,xp:S.xp,lv:lvl(),best:S.bestTest|0,ks:ksPct(),acc:accPct(),tm:tmMin(),me:1};
   let rows=[],src='';
@@ -765,7 +761,7 @@ function ranks(){
   const key=RKC.some(c=>c[0]===RKS)?RKS:'score';
   rows.sort((a,b)=>b[key]-a[key]||b.score-a.score||b.xp-a.xp);
   const status=DB&&UID?(boardWait?'Connecting to the shared board…':BOARDERR?esc(BOARDERR):WRITEERR==='read-only'?'You can see the shared board, but this account may not post scores (viewer access). Your scores still count on your own device.':WRITEERR==='failed'?'Your latest score could not be posted. It will retry on your next result.':'Live: everyone who studies this guide appears here.'):'This downloaded copy cannot reach the shared board by itself. Tap the button below and your score is posted for you.';
-  main.innerHTML='<div class="page"><div class="card"><h2>🏆 Leaderboard</h2><div class="mut" style="margin-bottom:8px">'+status+'</div><div class="mut" style="font-size:13px;margin-bottom:8px" id="rkhow">Score = 40% best test + 30% Knowledge studied + 20% quiz accuracy (after 20 answers) + 10% time studied (full marks at 10 hours). Time counts only while a guide is open and in use. Tap a column to sort by it.</div><div class="scroll"><table class="lb"><thead><tr><th scope="col">#</th><th scope="col">Callsign</th>'+RKC.map(c=>'<th scope="col" aria-sort="'+(c[0]===key?'descending':'none')+'"><button type="button" class="rks'+(c[0]===key?' on':'')+'" data-rs="'+c[0]+'">'+c[1]+(c[0]===key?' ▾':'')+'</button></th>').join('')+'</tr></thead><tbody>'+rows.slice(0,25).map((r,i)=>'<tr class="'+(r.me?'me':'')+'"><td>'+(i<3?['🥇','🥈','🥉'][i]:i+1)+'</td><td class="nm">'+esc(r.n)+(r.me?' <span class="tag">you</span>':'')+'</td><td><b>'+r.score+'</b></td><td>'+r.best+'%</td><td>'+r.ks+'%</td><td>'+(r.acc?r.acc+'%':'–')+'</td><td>'+fmtTm(r.tm)+'</td><td>'+r.xp+'</td></tr>').join('')+'</tbody></table></div></div>'
+  main.innerHTML='<div class="page"><div class="card"><h2>🏆 Leaderboard</h2><div class="mut" style="margin-bottom:8px">'+status+'</div><div class="mut" style="font-size:13px;margin-bottom:8px" id="rkhow">Score = 40% best test + 30% Knowledge studied + 20% quiz accuracy (after 20 answers) + 10% time studied (full marks at 10 hours). Time counts only while a guide is open and in use. Tap a column to sort by it.</div><div class="scroll"><table class="lb"><thead><tr><th scope="col">#</th><th scope="col">Callsign</th>'+RKC.map(c=>'<th scope="col" aria-sort="'+(c[0]===key?'descending':'none')+'"><button type="button" class="rks'+(c[0]===key?' on':'')+'" data-rs="'+c[0]+'">'+c[1]+(c[0]===key?' ▾':'')+'</button></th>').join('')+'</tr></thead><tbody>'+rows.slice(0,25).map((r,i)=>'<tr class="'+(r.me?'me':'')+'"><td>'+(i<3?['🥇','🥈','🥉'][i]:i+1)+'</td><td class="nm">'+esc(r.n)+(r.me?' <span class="tag">you</span>':'')+'</td><td><b>'+r.score+'</b></td><td>'+r.best+'%</td><td>'+r.ks+'%</td><td>'+(r.acc?r.acc+'%':'–')+'</td><td>'+fmtTm(r.tm)+'</td><td>'+r.lv+'</td><td>'+r.xp+'</td></tr>').join('')+'</tbody></table></div></div>'
   +(!S.name?'<div class="card"><h3>Join the leaderboard</h3><div class="mut" style="margin-bottom:10px">Pick a 3 character callsign (for example ABC) to appear on the global board.</div><button class="btn s" id="setnm">Choose callsign</button></div>':(!(DB&&UID)?'<div class="card"><h3>Global board</h3><div class="mut">The shared board is not connected right now. Reload the page to try again.</div></div>':''))+'<div class="card"><h3>Your history</h3>'+(S.hist.length?[...S.hist].reverse().slice(0,10).map(h=>'<div style="display:flex;justify-content:space-between;padding:4px 0;gap:8px"><span>'+(h.mode==='test'?'🎯':'⚡')+' '+esc(h.scope)+'</span><b>'+h.pct+'%</b></div>').join(''):'<div class="mut">No runs yet. Finish a quiz or test to appear here.</div>')+'</div></div>';
   const sn=$('#setnm');if(sn)sn.onclick=()=>gate(false);
   main.querySelectorAll('[data-rs]').forEach(b=>b.onclick=()=>{RKS=b.dataset.rs;render();const f=main.querySelector('[data-rs="'+RKS+'"]');if(f)f.focus()});
