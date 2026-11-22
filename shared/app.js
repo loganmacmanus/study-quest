@@ -642,7 +642,7 @@ function syncRun(ka){if(!SY.on)return Promise.resolve(false);if(SY.busy){SY.agai
   finally{SY.busy=null;syncUI();if(SY.again){SY.again=0;syncDirty()}}})();
   return SY.busy}
 /* before the first render: wait up to 2.5 s for the account's copy; if it is slower the app starts on the local copy and the merge lands quietly later */
-function acctReset(){['known','fv','px','badges','cd','qr','bm'].forEach(k=>S[k]={});S.dd=[];S.hist=[];S.bmt=0;S.rx={quiz:0,test:0};S.name='';S.ks={d:0,n:0,t:0};['xp','best','bestTest','bestQuiz','ans','cor','qs'].forEach(k=>S[k]=0);try{localStorage.removeItem(RK)}catch(e){}if(R){clearInterval(tm);tm=0;R=null;if(V==='run'||V==='res')V='home'}quietRender()}
+function acctReset(){['known','fv','px','badges','cd','qr','bm','tmd'].forEach(k=>S[k]={});S.dd=[];S.hist=[];S.bmt=0;S.rx={quiz:0,test:0};S.name='';S.ks={d:0,n:0,t:0};['xp','best','bestTest','bestQuiz','ans','cor','qs'].forEach(k=>S[k]=0);try{localStorage.removeItem(RK)}catch(e){}if(R){clearInterval(tm);tm=0;R=null;if(V==='run'||V==='res')V='home'}quietRender()}
 function syncFirst(){if(!SY.on)return Promise.resolve();return Promise.race([syncRun(),new Promise(r=>setTimeout(r,2500))]).catch(()=>{})}
 document.addEventListener('visibilitychange',()=>{if(!SY.on)return;
   if(document.hidden){if(SY.timer&&!SY.busy){clearTimeout(SY.timer);SY.timer=0;syncRun(true)}}
