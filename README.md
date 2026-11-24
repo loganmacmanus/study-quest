@@ -18,20 +18,21 @@ Each guide has its own look (cyan HUD, parchment, deep space, chalkboard), light
 ## Features
 
 - Notes, glossary, flashcards, practice quizzes and a timed test with a choice of time limits.
-- XP, levels, badges, a daily streak and a leaderboard per guide with separate callsigns.
+- XP, levels, badges, a daily streak and a sortable leaderboard per guide with separate callsigns, ranked by an overall score.
 - **Knowledge studied** on the hub and in each guide, with a per-chapter breakdown.
+- Unfinished quizzes and tests resume where you left off, with End early and Restart buttons.
 - Review of missed questions and weak spots, saved questions, search, and a printable cheat sheet.
-- Extra study pages where a class has them (for example Verses and Planets) and a Proofs tab for MA 224.
+- Extra study pages where a class has them (for example Verses with a verse quiz, and Planets) and a Proofs tab for MA 224.
 - A suggestion box and a "Report a problem" button on questions.
 - An updates page with a notification bell, quiet hub music, a mute switch, an animations setting, and back up and restore of your progress to a file.
-- Works from small phones to desktops. Study progress is saved on your device.
+- Works from small phones to desktops. Study progress is saved on your device and synced to your account, so it follows you between devices.
 
 ## How it works
 
 - Static site on GitHub Pages: plain HTML, CSS and JavaScript, with no frameworks, no trackers and self-hosted fonts.
 - Sign-in uses a one-time email code through Supabase. New people are approved by the owner, and access lasts 30 days.
 - The study questions and notes are **not** in this repository. They live in a private storage bucket that only approved, signed-in people can download.
-- The leaderboard rules (one row per person per guide, scores only go up, XP gain is rate-limited) are enforced by the database, not by the browser.
+- The leaderboard rules (one row per person per guide, best scores and XP only go up, XP and study time are rate-limited) are enforced by the database, not by the browser.
 
 The key in `config.js` is Supabase's public "anon" key. It is meant to be public, and the database rules decide what it can do.
 
