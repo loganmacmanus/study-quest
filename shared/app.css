@@ -16,7 +16,7 @@ button{cursor:pointer;border:0;background:none;touch-action:manipulation}
 h1,h2,h3{font-family:var(--fd);margin:0;text-wrap:balance}
 h2{font-size:22px;margin-bottom:6px}h3{font-size:16px;margin-bottom:6px}
 .mut{color:var(--mut)}
-#hud{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--cardA);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--bd);box-shadow:0 6px 24px rgba(0,0,0,.12)}
+#hud{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:linear-gradient(var(--cardA),var(--cardA)),var(--bg);border-bottom:1px solid var(--bd);box-shadow:0 6px 24px rgba(0,0,0,.12)}
 .row{display:flex;align-items:center;gap:8px;padding:7px max(16px,env(safe-area-inset-right,0px)) 7px max(16px,env(safe-area-inset-left,0px));max-width:1040px;margin:0 auto}
 .brand{display:flex;align-items:center;gap:8px;font:700 15px var(--fd);letter-spacing:.07em;white-space:nowrap;min-width:0}
 .brand b{background:linear-gradient(90deg,var(--ac),var(--ac2));-webkit-background-clip:text;background-clip:text;color:transparent}

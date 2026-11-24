@@ -219,6 +219,10 @@ function flash(k){const f=$('#flash');f.className='';void f.offsetWidth;f.classN
 function vib(n){try{navigator.vibrate&&navigator.vibrate(n)}catch(e){}}
 function toast(html,ms){const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.innerHTML=html;document.body.appendChild(t);setTimeout(()=>t.remove(),ms||3000)}
 
+/* looping CSS animations (logo, icons) step on the background's 30 fps clock: left alone they redraw the page at the screen's full rate, which is slow without a GPU */
+const aniT0=new WeakMap();
+window.CSQ_TICK=t=>{if(document.getAnimations)for(const a of document.getAnimations()){if(a.effect.getComputedTiming().iterations!==Infinity)continue;if(!aniT0.has(a)){a.pause();aniT0.set(a,t-(a.currentTime||0))}a.currentTime=t-aniT0.get(a)}};
+
 /* ---------- animated background ---------- */
 (function bg(){
   const cv=$('#bg');if(LK&&LK.bg){LK.bg(cv);return}
@@ -228,7 +232,7 @@ function toast(html,ms){const t=document.createElement('div');t.className='toast
   let colC=null;const col=()=>{if(colC===null)colC=getComputedStyle(document.documentElement).getPropertyValue('--net').trim()||'34,211,238';return colC}; /* read once, again only after a theme change */
   try{new MutationObserver(()=>{colC=null}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme','style','class']})}catch(e){}
   function draw(t){
-    raf=requestAnimationFrame(draw);if(t-last<31)return;last=Math.max(last+1e3/30,t-17); /* steady 30 fps on any refresh rate: "wait 33 ms" became 25 fps on 75 Hz screens */
+    raf=requestAnimationFrame(draw);if(t-last<31)return;last=Math.max(last+1e3/30,t-17); /* steady 30 fps on any refresh rate: "wait 33 ms" became 25 fps on 75 Hz screens */if(!reduce())CSQ_TICK(t);
     const c=col(),dark=document.documentElement.dataset.theme==='dark'||(!document.documentElement.dataset.theme&&matchMedia('(prefers-color-scheme: dark)').matches);
     cx.clearRect(0,0,W,H);
     const g=cx.createRadialGradient(W*.15+Math.sin(t/9000)*60,-40,0,W*.15,-40,Math.max(W,H)*.8);g.addColorStop(0,'rgba('+c+','+(dark?.16:.12)+')');g.addColorStop(1,'rgba('+c+',0)');cx.fillStyle=g;cx.fillRect(0,0,W,H);
