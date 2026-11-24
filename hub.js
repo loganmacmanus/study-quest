@@ -27,6 +27,18 @@
   }
   applyPrefs();
   addEventListener("sq-prefs", applyPrefs);
+  /* looping CSS animations step at 30 fps (as in the guides, app.js): the drifting background is slow at full rate without a GPU */
+  if (document.getAnimations) {
+    const t0 = new WeakMap(); let last = 0;
+    requestAnimationFrame(function tick(t) {
+      requestAnimationFrame(tick); if (t - last < 31) return; last = Math.max(last + 1e3 / 30, t - 17);
+      for (const a of document.getAnimations()) {
+        if (a.effect.getComputedTiming().iterations !== Infinity) continue;
+        if (!t0.has(a)) { a.pause(); t0.set(a, t - (a.currentTime || 0)); }
+        a.currentTime = t - t0.get(a);
+      }
+    });
+  }
   addEventListener("storage", (e) => { if (e.key === "sq_prefs" || e.key === null) applyPrefs(); });
 
   /* ---------- theme ---------- */
