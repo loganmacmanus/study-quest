@@ -44,10 +44,12 @@
     // optional Proofs feature: only guides whose content has an "X" object load proofs.js (before app.js)
     const hasX = data.X && typeof data.X === "object" && !Array.isArray(data.X);
     if (hasX) window.X = data.X;
-    const s = document.createElement("script"); s.src = "../shared/app.js?v=25"; s.defer = true;
+    // readable math (sums, powers, subscripts, symbol meanings): any guide whose content has math symbols
+    if (/[_^]\{|[ΣΠ]\(|[∈⊆∀∃∪∩]/.test(JSON.stringify(data))) { const mj = document.createElement("script"); mj.src = "../shared/math.js?v=1"; document.body.appendChild(mj); }
+    const s = document.createElement("script"); s.src = "../shared/app.js?v=26"; s.defer = true;
     s.onload = buildNav;
     if (hasX) {
-      const p = document.createElement("script"); p.src = "../shared/proofs.js?v=2"; p.defer = true;
+      const p = document.createElement("script"); p.src = "../shared/proofs.js?v=3"; p.defer = true;
       p.onload = () => document.body.appendChild(s);
       p.onerror = () => { delete window.X; document.body.appendChild(s); };
       document.body.appendChild(p);

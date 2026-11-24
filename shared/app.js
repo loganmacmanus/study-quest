@@ -454,7 +454,7 @@ function sheet(){const old=$('#sq-print');if(old)old.remove();const d=document.c
   KEYS.forEach(c=>{h+='<h2>'+esc(chName(c))+' · '+esc(chSub(c))+'</h2>'+(N[c]||[]).map(s=>{s=String(s);const j=s.indexOf(' — ');return '<div class="it">'+(j>0?'<b>'+esc(s.slice(0,j))+'</b> — '+esc(s.slice(j+3)):esc(s))+'</div>'}).join('')});
   h+='<h2>Glossary</h2>'+G.map(g=>'<div class="it"><b>'+esc(g[1])+'</b>'+(g[2]?' ('+esc(g[2])+')':'')+': '+esc(g[3])+'</div>').join('');
   d.innerHTML=h;document.body.appendChild(d);document.body.classList.add('sq-printing');
-  const done=()=>{document.body.classList.remove('sq-printing');d.remove();removeEventListener('afterprint',done)};addEventListener('afterprint',done);try{window.print()}catch(e){done()}}
+  const done=()=>{document.body.classList.remove('sq-printing');d.remove();removeEventListener('afterprint',done)};addEventListener('afterprint',done);if(window.CSQ_MATH)CSQ_MATH.apply(d);try{window.print()}catch(e){done()}}
 function bmToggle(b){const k=b.dataset.bm;if(!/^[A-Za-z0-9:-]{1,40}$/.test(k||''))return;
   if(S.bm[k])delete S.bm[k];else{if(Object.keys(S.bm).length>=1000){toast('Your saved list is full (1000). Remove one first.',2400);return}S.bm[k]=1}S.bmt=Date.now();save();sfx.click();
   const on=!!S.bm[k];main.querySelectorAll('[data-bm]').forEach(x=>{if(x.dataset.bm===k){x.classList.toggle('on',on);x.setAttribute('aria-pressed',on);x.textContent=on?'★':'☆';x.title=on?'Saved. Tap to remove':'Save for later'}});

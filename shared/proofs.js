@@ -164,6 +164,31 @@
   var isArr = Array.isArray;
   var doneTag = function () { var t = document.createElement("span"); t.className = "tag px-done"; t.textContent = "✓ done"; return t; };
 
+  /* proofs read down the page: a step label, then one sentence per line, and a chain a = b = c with one "=" per line.
+     Spans, not divs, so the same layout works inside answer buttons. Every piece goes through esc. */
+  function chain(s) {
+    var parts = [], depth = 0, from = 0, k;
+    for (k = 0; k < s.length; k++) {
+      var ch = s.charAt(k);
+      if ("([{".indexOf(ch) >= 0) depth++; else if (")]}".indexOf(ch) >= 0) depth = Math.max(0, depth - 1);
+      else if (!depth && "=<≤>≥".indexOf(ch) >= 0 && (k === 0 || s.charAt(k - 1) === " ") && s.charAt(k + 1) === " ") { parts.push(s.slice(from, k)); from = k; }
+    }
+    parts.push(s.slice(from));
+    if (parts.length < 3 || (parts.length === 3 && s.length < 45 && /[A-Za-z]{3,}/.test(parts[0])) || parts.slice(1, -1).some(function (p) { return /[A-Za-z]{3,}|, |: /.test(p.replace(/\([^()]*\)/g, "")); })) return [s];
+    return parts.map(function (p) { return p.trim(); }).filter(Boolean);
+  }
+  function lineHTML(text, esc) {
+    var t = String(text), lab = /^((?:Step|Basis|Inductive|Case|Part|Proof|Conclusion|To show|Show)\b[^:.=]{0,40}):\s+/.exec(t), out = "";
+    if (lab) { out += '<span class="px-step">' + esc(lab[1]) + "</span>"; t = t.slice(lab[0].length); }
+    t.replace(/, (?=where [a-zA-Z] = )/g, ",\n").replace(/([0-9)])\.\s+(?=[0-9])/g, "$1.\n").replace(/([.:])\s+(?=[A-ZΣΠ("“∀∃])/g, function (a, c, at, all) { return c === ":" && /(^|\W)[A-Za-z]$/.test(all.slice(0, at)) ? a : c + "\n"; }).split("\n").forEach(function (sen) {
+      chain(sen).forEach(function (p) {
+        var why = /\s+(\((?=[a-z][a-z ]{4,})[^()]*\))(\.?)$/.exec(p), b = why ? p.slice(0, why.index) : p;
+        out += '<span class="px-ln' + (/^[=<≤>≥] /.test(b) ? " px-eq" : "") + '">' + esc(b) + (why ? ' <span class="px-why">' + esc(why[1]) + "</span>" + why[2] : "") + "</span> ";
+      });
+    });
+    return out;
+  }
+
   function render(api) {
     var X = window.X || {}, esc = api.esc, main = api.main;
     var px = (api.state.px = api.state.px && typeof api.state.px === "object" && !isArr(api.state.px) ? api.state.px : {});
@@ -207,7 +232,7 @@
       body += items.length ? items.map(function (it, n) {
         var id = idOf("w", it, n), open = !!st.rev[id], done = !!px[id];
         return '<div class="card px-card"><div>' + tag(it) + (done ? '<span class="tag px-done">✓ done</span>' : "") + "</div><h3>" + esc(it.title || "") + "</h3><p>" + esc(it.prompt || "") + '</p><div class="px-row"><button type="button" class="btn s g" data-rev="' + n + '" aria-expanded="' + open + '">' + (open ? "Hide answer" : "Show full answer") + '</button><button type="button" class="btn s" data-got="' + n + '"' + (done ? " disabled" : "") + ">I got it ✓</button></div>"
-          + '<div class="px-ans" data-ans="' + n + '"' + (open ? "" : " hidden") + ">" + (isArr(it.answer) ? it.answer : []).map(function (l) { return '<div class="px-line">' + esc(l) + "</div>"; }).join("") + "</div></div>";
+          + '<div class="px-ans" data-ans="' + n + '"' + (open ? "" : " hidden") + ">" + (isArr(it.answer) ? it.answer : []).map(function (l) { return '<div class="px-line">' + lineHTML(l, esc) + "</div>"; }).join("") + "</div></div>";
       }).join("") : empty;
       after = function () {
         main.querySelectorAll("[data-rev]").forEach(function (b) {
@@ -228,12 +253,12 @@
         var bi = items.findIndex(function (it, n) { return idOf("b", it, n) === st.b.id; }), it = items[bi], stages = isArr(it.stages) ? it.stages : [];
         body += '<div class="px-pick">' + items.map(function (p, n) { var id = idOf("b", p, n); return '<button type="button" class="btn s ' + (id === st.b.id ? "" : "g") + '" data-pk="' + n + '" aria-pressed="' + (id === st.b.id) + '">' + (px[id] ? "✓ " : "") + esc(p.title || "") + "</button>"; }).join("") + "</div>";
         body += '<div class="card px-card"><div>' + tag(it) + '</div><p class="px-stmt"><b>' + esc(it.statement || "") + "</b></p>";
-        if (st.b.lines.length) body += '<div class="px-proof">' + st.b.lines.map(function (l) { return '<div class="px-line">' + esc(l) + "</div>"; }).join("") + (st.b.stage >= stages.length ? '<div class="px-qed" aria-label="end of proof">∎</div>' : "") + "</div>";
+        if (st.b.lines.length) body += '<div class="px-proof">' + st.b.lines.map(function (l) { return '<div class="px-line">' + lineHTML(l, esc) + "</div>"; }).join("") + (st.b.stage >= stages.length ? '<div class="px-qed" aria-label="end of proof">∎</div>' : "") + "</div>";
         if (st.b.stage < stages.length) {
           var sg = stages[st.b.stage], opts = [{ t: sg.correct, ok: true }].concat((isArr(sg.wrong) ? sg.wrong : []).map(function (w) { return { t: w[0], why: w[1], ok: false }; }));
           if (!st.b.order || st.b.order.length !== opts.length) st.b.order = shuffle(opts.map(function (_, k) { return k; }));
           body += '<p class="px-prompt" id="px-prompt" tabindex="-1"><b>' + esc(sg.prompt || "") + "</b> <span class=\"mut\">(step " + (st.b.stage + 1) + " of " + stages.length + ")</span></p>";
-          body += st.b.order.map(function (oi, k) { var bad = st.b.bad.indexOf(oi) >= 0; return '<button type="button" class="opt' + (bad ? " no" : "") + '" data-o="' + oi + '"' + (bad ? " disabled" : "") + "><i>" + "ABCDEF"[k] + "</i><span>" + esc(opts[oi].t) + "</span></button>"; }).join("");
+          body += st.b.order.map(function (oi, k) { var bad = st.b.bad.indexOf(oi) >= 0; return '<button type="button" class="opt' + (bad ? " no" : "") + '" data-o="' + oi + '"' + (bad ? " disabled" : "") + "><i>" + "ABCDEF"[k] + "</i><span>" + lineHTML(opts[oi].t, esc) + "</span></button>"; }).join("");
           body += '<div class="fb px-fb" id="px-fb" tabindex="-1" aria-live="polite"' + (st.b.msg ? "" : " hidden") + ">" + esc(st.b.msg) + "</div>";
           after = function () {
             main.querySelectorAll("[data-o]").forEach(function (b) {
@@ -318,7 +343,7 @@
         var answered = 0, right = 0;
         items.forEach(function (q, n) { var s2 = st.e[idOf("e", q, n)]; if (s2 && s2.solved) { answered++; if (s2.first) right++; } });
         body += '<p class="mut px-count" aria-live="polite">Score: ' + right + " / " + answered + " answered · item " + (st.ei + 1) + " of " + tot + "</p>";
-        body += '<div class="card px-card"><div>' + tag(it2) + "</div><p><b>Claim:</b> " + esc(it2.claim || "") + '</p><pre class="px-pre">' + esc((isArr(it2.fragment) ? it2.fragment : []).join("\n")) + "</pre><p><b>" + esc(it2.q || "What is the main error?") + "</b></p>";
+        body += '<div class="card px-card"><div>' + tag(it2) + "</div><p><b>Claim:</b> " + esc(it2.claim || "") + '</p><div class="px-pre">' + (isArr(it2.fragment) ? it2.fragment : []).map(function (l) { return '<div class="px-line">' + lineHTML(l, esc) + "</div>"; }).join("") + "</div><p><b>" + esc(it2.q || "What is the main error?") + "</b></p>";
         body += (isArr(it2.options) ? it2.options : []).map(function (t, k) { var bad = es.bad.indexOf(k) >= 0, good = es.solved && k === it2.answer; return '<button type="button" class="opt' + (good ? " ok" : bad ? " no" : "") + '" data-a="' + k + '"' + (bad || es.solved ? " disabled" : "") + "><i>" + "ABCDE"[k] + "</i><span>" + esc(t) + "</span></button>"; }).join("");
         body += '<div class="fb px-fb' + (es.solved ? " good" : "") + '" id="px-fb" tabindex="-1" aria-live="polite"' + (es.solved || es.bad.length ? "" : " hidden") + ">" + (es.solved ? "✓ " + esc(it2.expl || "") : es.bad.length ? "✗ Not quite. Look at the proof again and try another option." : "") + "</div>";
         body += '<div class="px-row"><button type="button" class="btn s g" id="px-prev"' + (st.ei === 0 ? " disabled" : "") + '>← Previous</button><button type="button" class="btn s" id="px-nxt"' + (st.ei >= tot - 1 ? " disabled" : "") + ">Next →</button></div></div>";
@@ -346,5 +371,5 @@
     });
   }
 
-  window.CSQ_PROOFS = Object.freeze({ render: render, _expr: Object.freeze({ parse: function (s, names) { return compile(s, names) !== null; }, run: run, template: template, fmt: fmt }) });
+  window.CSQ_PROOFS = Object.freeze({ render: render, _line: lineHTML, _expr: Object.freeze({ parse: function (s, names) { return compile(s, names) !== null; }, run: run, template: template, fmt: fmt }) });
 })();

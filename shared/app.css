@@ -207,7 +207,18 @@ html.sq-anim-off *,html.sq-anim-off *::before,html.sq-anim-off *::after{animatio
 .px-row .btn{width:auto;margin-top:0}
 .px-ans,.px-proof{margin-top:10px;padding:10px 12px;border:1px solid var(--bd);border-left:4px solid var(--ac);border-radius:10px;background:var(--bg2)}
 .px-ans[hidden],.px-fb[hidden]{display:none}
-.px-line{padding:3px 0;line-height:1.5}
+.px-line{padding:6px 0;line-height:1.75}.px-line+.px-line:has(>.px-step){border-top:1px dashed var(--bd)}
+.px-ln{display:block}.px-eq{padding-left:1.6em}.px-step{display:block;font-weight:800;color:var(--ac)}.px-why{color:var(--mut);font-size:.9em}
+/* ---- readable math (math.js): mx- classes only ---- */
+.mx-s,.mx-big,.mx-k dt{font-family:"Cambria Math","STIX Two Math",STIXGeneral,"Noto Sans Math",var(--fb)}
+.mx-s{font-size:1.14em;line-height:1}
+.mx-sum{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;margin:3px 4px;line-height:1.1}
+.mx-big{font-size:1.9em;line-height:1.05;height:1.1em;display:grid;place-items:center}.mx-lim{font-size:.76em;white-space:nowrap}
+.mx-scr{font-size:.76em;line-height:0}
+.mx-vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.mx-det{margin-top:10px}.mx-det summary{cursor:pointer;font-weight:700;color:var(--ac);min-height:44px;display:flex;align-items:center}
+.mx-k{margin:4px 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px 14px}
+.mx-k div{display:flex;gap:10px;align-items:baseline}.mx-k dt{flex:none;min-width:30px;font-size:20px;line-height:1.3;text-align:center;color:var(--ac)}.mx-k dd{margin:0;font-size:14px}
 .px-qed{text-align:right;font-size:20px;color:var(--ac)}
 .px-pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;font-family:inherit;line-height:1.5;margin:8px 0}
 .px-pick{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}
