@@ -228,7 +228,7 @@ function toast(html,ms){const t=document.createElement('div');t.className='toast
   let colC=null;const col=()=>{if(colC===null)colC=getComputedStyle(document.documentElement).getPropertyValue('--net').trim()||'34,211,238';return colC}; /* read once, again only after a theme change */
   try{new MutationObserver(()=>{colC=null}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme','style','class']})}catch(e){}
   function draw(t){
-    raf=requestAnimationFrame(draw);if(t-last<33)return;last=t;
+    raf=requestAnimationFrame(draw);if(t-last<31)return;last=Math.max(last+1e3/30,t-17); /* steady 30 fps on any refresh rate: "wait 33 ms" became 25 fps on 75 Hz screens */
     const c=col(),dark=document.documentElement.dataset.theme==='dark'||(!document.documentElement.dataset.theme&&matchMedia('(prefers-color-scheme: dark)').matches);
     cx.clearRect(0,0,W,H);
     const g=cx.createRadialGradient(W*.15+Math.sin(t/9000)*60,-40,0,W*.15,-40,Math.max(W,H)*.8);g.addColorStop(0,'rgba('+c+','+(dark?.16:.12)+')');g.addColorStop(1,'rgba('+c+',0)');cx.fillStyle=g;cx.fillRect(0,0,W,H);

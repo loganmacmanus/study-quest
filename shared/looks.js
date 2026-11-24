@@ -51,7 +51,7 @@
     }
     function tick(t) {
       st.raf = requestAnimationFrame(tick);
-      if (t - st.last < 33) return; st.last = t;
+      if (t - st.last < 31) return; st.last = Math.max(st.last + 1e3 / 30, t - 17); /* steady 30 fps on any refresh rate (same rule as app.js) */
       frame(cx, st, t, false);
     }
     function start() {
