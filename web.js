@@ -68,22 +68,9 @@
   const sendCode = (email) => call("/auth/v1/otp", { method: "POST", auth: false, body: { email, create_user: true } });
   async function verify(email, code) { const d = await call("/auth/v1/verify", { method: "POST", auth: false, body: { type: "email", email, token: code } }); keep(fromAuth(d)); return sess; }
   async function signOut() { try { await call("/auth/v1/logout", { method: "POST" }); } catch (e) {} keep(null); location.reload(); }
-  // The owner is recognised by a salted SHA-256 hash of their email (config ownerSalt + ownerHash), so the address is not in the site code.
-  // ownerEmail still works for older configs.
-  let ownerFlag = false;
-  async function checkOwner() {
-    ownerFlag = false;
-    if (!sess) return;
-    if (CFG.ownerEmail) { ownerFlag = sess.user.email === String(CFG.ownerEmail).toLowerCase(); return; }
-    const want = String(CFG.ownerHash || "").toLowerCase();
-    if (!/^[0-9a-f]{64}$/.test(want) || !(window.crypto && crypto.subtle)) return;
-    try {
-      const salt = /^[0-9a-f]{16,64}$/.test(String(CFG.ownerSalt || "")) ? CFG.ownerSalt + ":" : "";
-      const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(salt + sess.user.email));
-      ownerFlag = Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("") === want;
-    } catch (e) { ownerFlag = false; }
-  }
-  const isOwner = () => !!(sess && ownerFlag);
+  // Who the owner is comes from the server (request-access replies owner: true). It only decides what is shown: the database and functions check again.
+  let ownerId = "";
+  const isOwner = () => !!(sess && ownerId && sess.user.id === ownerId);
   const requestAccess = () => call("/functions/v1/" + (CFG.fnRequest || "dynamic-function"), { method: "POST", body: {} });
   async function myAccess() { const r = await call("/rest/v1/access?select=status,expires_at&user_id=eq." + encodeURIComponent(sess.user.id)); return r && r[0] || null; }
 
@@ -144,19 +131,17 @@
     if (!sess) return askEmail();
     card(top("Checking access…", "") + '<div class="spin" aria-hidden="true"></div>');
     let st;
-    await checkOwner();
-    if (isOwner()) st = { status: "approved", owner: true }; // the owner never waits on the server function
-    else {
-      try { st = await requestAccess(); }
-      catch (e) {
-        if (e.status === 401) { keep(null); return askEmail("Your sign-in expired. Please sign in again."); }
-        const why = !e.status ? "The request-access function blocked or did not answer (no response). Usually the SITE_URL secret does not match this site's address, or the function is not deployed."
-          : e.status === 404 ? "The request-access function was not found (404). Check it is deployed with exactly that name."
-          : e.status === 500 ? "The request-access function crashed (500): " + e.message + ". Check that schema.sql ran in the SQL Editor."
-          : "Server answered " + e.status + ": " + e.message;
-        return problem("Could not check your access. " + why);
-      }
+    ownerId = "";
+    try { st = await requestAccess(); }
+    catch (e) {
+      if (e.status === 401) { keep(null); return askEmail("Your sign-in expired. Please sign in again."); }
+      const why = !e.status ? "The request-access function blocked or did not answer (no response). Usually the SITE_URL secret does not match this site's address, or the function is not deployed."
+        : e.status === 404 ? "The request-access function was not found (404). Check it is deployed with exactly that name."
+        : e.status === 500 ? "The request-access function crashed (500): " + e.message + ". Check that schema.sql ran in the SQL Editor."
+        : "Server answered " + e.status + ": " + e.message;
+      return problem("Could not check your access. " + why);
     }
+    if (sess && st && st.owner === true) ownerId = sess.user.id;
     if (!st || st.status !== "approved") return waiting(st && st.status);
     $("#auth").hidden = true; $("#auth").innerHTML = "";
     if (onReady) onReady(st);
